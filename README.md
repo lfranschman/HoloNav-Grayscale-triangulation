@@ -12,6 +12,7 @@
 If you use Windows, you can get python wheel here [https://www.lfd.uci.edu/~gohlke/pythonlibs](https://www.lfd.uci.edu/~gohlke/pythonlibs). It can be interesting for numpy library for example as it is compiled using Intel MKL and is much faster than the default one.
 
 Command-line and version used:
+```
 python -m pip install --upgrade pip
 python -m pip install cython
 python -m pip install numpy-1.21.2+mkl-cp38-cp38-win_amd64.whl
@@ -22,6 +23,7 @@ python -m pip install opencv_python-4.5.3-cp38-cp38-win_amd64.whl
 python -m pip install opencv-contrib-python
 python -m pip install open3d
 python -m pip install dearpygui
+```
 
 ## Quick start
 - Edit the file `userSpecific/globalVariables.default.bat` to change the paths and parameters fitting your configuration.
