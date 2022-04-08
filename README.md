@@ -29,26 +29,26 @@ python -m pip install dearpygui
 - Edit the file `userSpecific/globalVariables.default.bat` to change the paths and parameters fitting your configuration.
 - Edit the file `pyapp/config.py` to change `self.path` (where is your data folder). To change dataset edit the end of the file.
 
-- check `pyapp/sphere_tracking.py` for an example to get the center of the sphere position in images using the optical tracking aligned via the qr code to the hololens world coordinate.
-	- you can execute `pyapp/sphere_trackingRedirect.bat` and find log in the `pyapp/generated` folder.
-	- check the `docs` folder to get more information on the different coordinate systems.
+- Check `pyapp/sphere_tracking.py` for an example to get the center of the sphere position in images using the optical tracking aligned via the qr code to the hololens world coordinate.
+	- You can execute `pyapp/sphere_trackingRedirect.bat` and find log in the `pyapp/generated` folder.
+	- Check the `docs` folder to get more information on the different coordinate systems.
 
-- check `pyapp/processqrcode.py` for an example to find qr codes (pv camera or vl cameras) and compute distance error between optical and hololens.
-	- you can execute `pyapp/processqrcodeRedirect.bat` and find log in the `pyapp/generated` folder.
-	- you can uncomment data.save_data(config.get_filename("optical_sphere")) to save data in optical_sphere.pickle.gz with the new computed qr code (for now optical_sphere.pickle.gz has the qr code of vl cameras).
+- Check `pyapp/processqrcode.py` for an example to find qr codes (pv camera or vl cameras) and compute distance error between optical and hololens.
+	- You can execute `pyapp/processqrcodeRedirect.bat` and find log in the `pyapp/generated` folder.
+	- You can uncomment data.save_data(config.get_filename("optical_sphere")) to save data in optical_sphere.pickle.gz with the new computed qr code (for now optical_sphere.pickle.gz has the qr code of vl cameras).
 
 - To visualize dataset execute `pyapp/visucalibrationRedirect.bat` and find log in the `pyapp/generated` folder
 	- When you are in the 3d window, you can:
-		- mouse wheel to zoom in/out
-		- left click to rotate
-		- shift + left click to roll
-		- ctrl + left click (or middle click) to translate
-		- press `L` to deactivate the lighting (useful because the light are not set properly right now)
-		- press `W` to have wireframe
+		- Mouse wheel to zoom in/out
+		- Left click to rotate
+		- Shift + left click to roll
+		- Ctrl + left click (or middle click) to translate
+		- Press `L` to deactivate the lighting (useful because the light are not set properly right now)
+		- Press `W` to have wireframe
 	- On the plot you can:
-		- right click for some option like display the legend
-		- double left click to center to default view (all plots visible)
-		- right click selection enable to choose a window where you want to center/zoom
+		- Right click for some option like display the legend
+		- Double left click to center to default view (all plots visible)
+		- Right click selection enable to choose a window where you want to center/zoom
 
 ## Thirdparties
 - [scikit-surgerycalibration](https://github.com/SciKit-Surgery/scikit-surgerycalibration)
