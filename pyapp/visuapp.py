@@ -9,7 +9,7 @@ from UtilMaths import vec3_to_vec4, identity_matrix44, translation_matrix44, rot
 from Logging import log_print
 
 from view3d import View3D
-from calibration_helpers import get_mat_m_to_o_series, solve_equations, get_mat_q_to_w, get_mat_m_to_o, get_mat_w_to_o, get_pointer_offset_filename, get_mat_divots_filename, pointer_pivot_calibration, register_divots
+from calibration_helpers import get_mat_m_to_o_series, get_mat_q_to_w, get_mat_m_to_o, get_mat_w_to_o, get_pointer_offset_filename, get_mat_divots_filename, pointer_pivot_calibration, register_divots
 from divot_calibration import register_divots_front_qr_code, register_divots_left_qr_code, register_divots_right_qr_code, register_divots_top_qr_code, register_divots_seed_holder
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS, ACQUISITIONS_HOLOLENS, RESEARCH_MODE_CAMERA_NAMES

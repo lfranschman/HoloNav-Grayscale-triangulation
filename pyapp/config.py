@@ -15,7 +15,7 @@ class qConfig:
 
         self.folder = self.path
 
-        self.record = None
+        self.record = filename
 
         self.optical_temporal_starting_time = -1
         self.optical_temporal_ending_time = -1

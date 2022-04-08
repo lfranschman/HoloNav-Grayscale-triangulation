@@ -104,15 +104,6 @@ def create_qr_code_positions():
     optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
     mat_w_to_o, _ = get_mat_w_to_o(qr_code_serie, optical_serie, mat_qf_to_m)
 
-    # print(f"mat_w_to_o {mat_w_to_o}")
-    # test with mat_w_to_o done with pv_cam
-    # mat_w_to_o = np.array( \
-    # [[ 4.52996123e-02, -9.98107891e-01, -4.15519444e-02, -6.51342191e+02] \
-    # ,[ 2.69222696e-01,  5.22537551e-02, -9.61658118e-01, -5.52302696e+02] \
-    # ,[ 9.62010799e-01,  3.23761017e-02,  2.71080742e-01, -1.79286068e+03] \
-    # ,[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]] \
-    # )
-
     for i in range(len(data.acquisitions["qr_code_position"])):
         timestamp = data.acquisitions["qr_code_position"].index[i]
         qr_code_serie = data.acquisitions["qr_code_position"].loc[timestamp]

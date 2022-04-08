@@ -14,7 +14,7 @@ from calibration_helpers import get_mat_c_to_w_series, get_mat_w_to_o, get_mat_m
 
 def find_optical_spheres():
     data = DataAcquisition()
-    data.load_data(config.get_filename("optical_sphere_vl"))
+    data.load_data(config.get_filename("optical_sphere"))
 
     for acquisition in ACQUISITIONS_HOLOLENS:
         if not data.acquisitions[acquisition].empty:

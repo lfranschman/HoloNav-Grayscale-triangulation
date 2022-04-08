@@ -76,16 +76,14 @@ def get_lut_pixel_image(lut, x, y, z):
                     closest[k] = [(lut[0][j,i], lut[1][j,i]), (i/2, j/2), dist]
                     break
 
-        # print(f"closest {closest}")
-        # if point_in_triangle((x,y), closest[0][CLOSEST_CAMERA_SPACE], closest[1][CLOSEST_CAMERA_SPACE], closest[2][CLOSEST_CAMERA_SPACE]):
-        b = barycentric(np.array((x,y)), np.array((closest[0][CLOSEST_CAMERA_SPACE])), np.array((closest[1][CLOSEST_CAMERA_SPACE])), np.array((closest[2][CLOSEST_CAMERA_SPACE])))
-        if b is None:
-            return None
-        image_x = b[0]*closest[0][CLOSEST_IMAGE_SPACE][0] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][0] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][0]
-        image_y = b[0]*closest[0][CLOSEST_IMAGE_SPACE][1] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][1] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][1]
-        return (image_x, image_y)
-
-    return None
+    # print(f"closest {closest}")
+    # if point_in_triangle((x,y), closest[0][CLOSEST_CAMERA_SPACE], closest[1][CLOSEST_CAMERA_SPACE], closest[2][CLOSEST_CAMERA_SPACE]):
+    b = barycentric(np.array((x,y)), np.array((closest[0][CLOSEST_CAMERA_SPACE])), np.array((closest[1][CLOSEST_CAMERA_SPACE])), np.array((closest[2][CLOSEST_CAMERA_SPACE])))
+    if b is None:
+        return None
+    image_x = b[0]*closest[0][CLOSEST_IMAGE_SPACE][0] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][0] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][0]
+    image_y = b[0]*closest[0][CLOSEST_IMAGE_SPACE][1] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][1] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][1]
+    return (image_x, image_y)
 
 # lut_x/lut_y shape (_, _)
 # output shape (_*_, 3)
