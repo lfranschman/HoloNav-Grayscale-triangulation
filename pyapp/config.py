@@ -10,50 +10,68 @@ DELETE_GT_DIVOT_INDEX_QR_CODE_2022_01_28 = np.array([2 ,3 ,5 ,6  \
                                                  ,44,45,47,48]) - 1
 
 class qConfig:
-    def __init__(self):
+    def __init__(self, filename):
         self.path = "C:/test/"
 
         self.folder = self.path
 
         self.record = None
 
+        self.optical_temporal_starting_time = -1
+        self.optical_temporal_ending_time = -1
         self.temporal_shift_optical = 0 # in s
-        self.optical_calibration_starting_time = -1
-        self.optical_calibration_ending_time = -1
+        self.optical_calibration_starting_time = [-1]
+        self.optical_calibration_ending_time = [-1]
 
+        self.qr_code_temporal_starting_time = -1
+        self.qr_code_temporal_ending_time = -1
         self.temporal_shift_hololens = 0 # in s
-        self.qr_code_calibration_starting_time = -1
-        self.qr_code_calibration_ending_time = -1
+        self.qr_code_calibration_starting_time = [-1]
+        self.qr_code_calibration_ending_time = [-1]
+        self.qr_code_optical_calibration_starting_time = -1
+        self.qr_code_optical_calibration_ending_time = -1
 
         self.order_divot_index = None
         self.to_delete_gt_divot_index = None
+
+        self.sub_config = 0
 
     def get_filename(self, record=None):
         if record is not None:
             return self.folder + record + ".pickle.gz"
         return self.folder + self.record + ".pickle.gz"
 
-class qConfig_2022_02_10_qr_code_test(qConfig):
-    def __init__(self):
-        super().__init__()
+class qConfig_2022_03_30_optical_sphere(qConfig):
+    FILES = [
+        "pivot_calibration"
+        ,"calibration_front_qr_code"
+        ,"optical_spheres"
+    ]
 
-        self.folder = self.path + "/2022_02_10_qr_code_test/"
+    def __init__(self, filename):
+        super().__init__(filename)
 
-        # self.record = "pivot_calibration"
-        # self.record = "calibration_front_qr_code"
-        # self.record = "calibration_left_qr_code"
-        # self.record = "calibration_right_qr_code"
-        # self.record = "calibration_top_qr_code"
+        self.folder = self.path + "/2022_03_30_optical_sphere/"
 
-        self.record = "qr_code_test"
-        # self.record = "qr_code_test2"
-
-        self.temporal_shift_hololens = 6 # in s
-        self.qr_code_calibration_starting_time = 8
-
-        if self.record in ["calibration_front_qr_code", "calibration_left_qr_code", "calibration_right_qr_code", "calibration_top_qr_code"]:
+        if self.record in ["calibration_front_qr_code"]:
             self.order_divot_index = ORDER_DIVOT_INDEX_QR_CODE_2022_01_28
             self.to_delete_gt_divot_index = DELETE_GT_DIVOT_INDEX_QR_CODE_2022_01_28
 
-# config = qConfig()
-config = qConfig_2022_02_10_qr_code_test()
+        elif self.record in ["optical_sphere", "optical_sphere_vl"]:
+            self.optical_temporal_starting_time = 0
+            self.optical_temporal_ending_time = 1
+            self.temporal_shift_optical = 0 # in s
+            self.optical_calibration_starting_time = [0]
+            self.optical_calibration_ending_time = [1]
+
+            self.qr_code_temporal_starting_time = 0
+            self.qr_code_temporal_ending_time = 1
+            self.temporal_shift_hololens = 39.22 # in s
+            self.qr_code_calibration_starting_time = [0]
+            self.qr_code_calibration_ending_time = [1]
+            self.qr_code_optical_calibration_starting_time = 116
+            self.qr_code_optical_calibration_ending_time = 116
+
+# config = qConfig_2022_03_30_optical_sphere("pivot_calibration")
+# config = qConfig_2022_03_30_optical_sphere("calibration_front_qr_code")
+config = qConfig_2022_03_30_optical_sphere("optical_sphere")

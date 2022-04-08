@@ -22,7 +22,8 @@ DRAW_CS_LENGTH = 50*SCALE_UNIT # 100 # in mm
 DIVOT_SPHERE_RADIUS = 3*SCALE_UNIT # in mm
 
 # LUT_SKIP_FACTOR = {'vl_front_left_cam':2, 'vl_front_right_cam':2, 'ahat_depth_cam':2, 'lt_depth_cam':2}
-LUT_SKIP_FACTOR = {'vl_front_left_cam':160, 'vl_front_right_cam':160, 'ahat_depth_cam':64, 'lt_depth_cam':32}
+# LUT_SKIP_FACTOR = {'vl_front_left_cam':160, 'vl_front_right_cam':160, 'ahat_depth_cam':64, 'lt_depth_cam':32}
+LUT_SKIP_FACTOR = {'vl_front_left_cam':40, 'vl_front_right_cam':40, 'ahat_depth_cam':16, 'lt_depth_cam':8}
 
 WINDOW_3D_WIDTH = 840
 WINDOW_3D_HEIGHT = 900

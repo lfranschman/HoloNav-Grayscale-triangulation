@@ -5,14 +5,11 @@ from File import load_pickle
 from QRCodeDetection import QRCodeDetection
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS_HOLOLENS
-from calibration_helpers import get_mat_c_to_w_series, get_mat_w_to_o, get_mat_q_to_w_series, get_mat_m_to_o_series
-
-def get_mat_divots_filename(variable):
-    return config.folder + variable + ".pickle"
+from calibration_helpers import get_mat_c_to_w_series, get_mat_w_to_o, get_mat_q_to_w_series, get_mat_m_to_o_series, get_mat_divots_filename
 
 def create_qr_code_positions():
     data = DataAcquisition()
-    data.load_data(config.get_filename("qr_code_test"))
+    data.load_data(config.get_filename("optical_sphere"))
 
     data.acquisitions["qr_code_position"] = pd.DataFrame([], columns = ['time'
         , 'q1_m11', 'q1_m12', 'q1_m13', 'q1_m14'
@@ -41,8 +38,8 @@ def create_qr_code_positions():
 
     #################################################################################################################
     # pv_cam
-    if True:
-    # if False:
+    # if True:
+    if False:
         for i in range(len(data.acquisitions["pv_cam_frames"])):
             timestamp = data.acquisitions["pv_cam"].index[i]
             serie = data.acquisitions["pv_cam"].loc[timestamp]
@@ -80,15 +77,15 @@ def create_qr_code_positions():
 
             mat_q_to_w_list = np.zeros((QRCodeDetection.NB_QR_CODE,4,4), dtype=np.float64)
             # if time difference is less than 100ms
-            if (timestamp_left - timestamp_right).total_seconds() < 0.1:
+            if abs((timestamp_left - timestamp_right).total_seconds()) < 0.1:
                 mat_q_to_w_list = qr_code_detection.detect_triangulation(frame_left, extrinsic_left, lut_projection_left, frame_right, extrinsic_right, lut_projection_right)
 
-            data.acquisitions["qr_code_position"].loc[timestamp_left] = tuple(mat_q_to_w_list.flatten())
+                data.acquisitions["qr_code_position"].loc[timestamp_left] = tuple(mat_q_to_w_list.flatten())
 
 
     #################################################################################################################
     # save to visualize qr code position (warning slow)
-    # data.save_data(config.get_filename("qr_code_test2"))
+    # data.save_data(config.get_filename("optical_sphere_vl"))
 
 
     #################################################################################################################
@@ -97,10 +94,10 @@ def create_qr_code_positions():
         if not data.acquisitions[acquisition].empty:
             data.acquisitions[acquisition].index = data.acquisitions[acquisition].index + pd.Timedelta(seconds=config.temporal_shift_hololens)
 
-    mat_qf_to_m = load_pickle(get_mat_divots_filename("mat_qf_to_m"))
+    mat_qf_to_m = load_pickle(get_mat_divots_filename(config, "mat_qf_to_m"))
 
-    # index 8 is taken as optical/qr code reference to compute mat_w_to_o
-    timestamp = data.acquisitions["qr_code_position"].index[8]
+    # compute mat_w_to_o: optical/qr code reference
+    timestamp = data.acquisitions["qr_code_position"].index[config.qr_code_optical_calibration_starting_time]
     qr_code_serie = data.acquisitions["qr_code_position"].loc[timestamp]
     optical_index = data.acquisitions["probe"].index.get_loc(timestamp, method='nearest')
     optical_timestamp = data.acquisitions["probe"].index[optical_index]
@@ -128,7 +125,7 @@ def create_qr_code_positions():
         optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
 
         # if optical acquisition time is more than 50ms to the qr code position
-        if (timestamp - optical_timestamp).total_seconds() > 0.05:
+        if abs((timestamp - optical_timestamp).total_seconds()) > 0.05:
             continue
 
         mat_q_to_w = get_mat_q_to_w_series(qr_code_serie)

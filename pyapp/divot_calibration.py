@@ -7,7 +7,6 @@ import pivot # https://github.com/UCL/scikit-surgerycalibration
 # from File import save_pickle, load_pickle # debug
 from UtilMaths import mul_mat44_vec4_list, vec3_list_to_vec4_list, mul_mat44_vec4, translation_matrix44, rotation_euler_matrix44, identity_matrix44, vec3_to_vec4, point_based_registration, iterative_closest_point #, print_matrix44
 from Logging import log_print
-from calibration_helpers import get_mat_o_to_m_series, get_mat_m_to_o_series
 
 SLIDING_WINDOW = '4s' # in s
 MIN_WINDOW_SIZE = 20 # in nb of measurement, 20 is minimum ~1s (optical tracking is 20Hz)
@@ -110,7 +109,7 @@ class SeedHolderCloud(Cloud):
         self.pts.append((border_x - DIVOT_DEPTH,   0, z))
         self.pts.append((border_x - DIVOT_DEPTH, -10, z))
 
-def pivot_calibration(df_pointer):
+def pivot_calibration(df_pointer, get_mat_m_to_o_series):
     # df_pointer = df_pointer[df_pointer['status 2'] == 'Enabled']
     log_print(f"df_pointer.index.size {df_pointer.index.size}")
 
@@ -125,7 +124,7 @@ def pivot_calibration(df_pointer):
     log_print(f"residual_error {residual_error}")
     return offset_tip_pointer
 
-def find_divots(df_optical, offset_tip_pointer, optical_marker_id):
+def find_divots(df_optical, offset_tip_pointer, optical_marker_id, get_mat_m_to_o_series, get_mat_o_to_m_series):
     df = df_optical[(df_optical['status 2'] == 'Enabled') & (df_optical[f"status {optical_marker_id}"] == 'Enabled')].copy()
     print(f"df.index.size {df.index.size}")
 
@@ -187,10 +186,10 @@ def find_divots(df_optical, offset_tip_pointer, optical_marker_id):
 
 # order_divot_index.shape (_,)
 # to_delete_gt_divot_index.shape (_,)
-def register_divots(df_optical, offset_tip_pointer, optical_marker_id, cloud, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots(df_optical, offset_tip_pointer, optical_marker_id, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index=None, to_delete_gt_divot_index=None):
     # log_print("register_divots")
     # divots = load_pickle("C:/Users/dibule/Desktop/divots_cube.pickle")
-    divots = find_divots(df_optical, offset_tip_pointer, optical_marker_id=optical_marker_id) # shape (n,3)
+    divots = find_divots(df_optical, offset_tip_pointer, optical_marker_id, get_mat_m_to_o_series, get_mat_o_to_m_series) # shape (n,3)
     # save_pickle(divots, "C:/Users/dibule/Desktop/divots_cube.pickle")
     print(f"divots.shape {divots.shape}")
 
@@ -220,26 +219,26 @@ def register_divots(df_optical, offset_tip_pointer, optical_marker_id, cloud, or
     # return divots, gt_divots, mat_marker_to_reference
     return divots, gt_divots_modified, mat_marker_to_reference
 
-def register_divots_front_qr_code(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots_front_qr_code(df_optical, offset_tip_pointer, get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index=None, to_delete_gt_divot_index=None):
     cloud = QRCodeCloud(7,7,10)
-    return register_divots(df_optical, offset_tip_pointer, 1, cloud, order_divot_index, to_delete_gt_divot_index)
+    return register_divots(df_optical, offset_tip_pointer, 1, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index, to_delete_gt_divot_index)
 
-def register_divots_left_qr_code(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots_left_qr_code(df_optical, offset_tip_pointer, get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index=None, to_delete_gt_divot_index=None):
     cloud = QRCodeCloud(7,7,10)
-    return register_divots(df_optical, offset_tip_pointer, 1, cloud, order_divot_index, to_delete_gt_divot_index)
+    return register_divots(df_optical, offset_tip_pointer, 1, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index, to_delete_gt_divot_index)
 
-def register_divots_right_qr_code(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots_right_qr_code(df_optical, offset_tip_pointer, get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index=None, to_delete_gt_divot_index=None):
     cloud = QRCodeCloud(7,7,10)
-    return register_divots(df_optical, offset_tip_pointer, 1, cloud, order_divot_index, to_delete_gt_divot_index)
+    return register_divots(df_optical, offset_tip_pointer, 1, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index, to_delete_gt_divot_index)
 
-def register_divots_top_qr_code(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots_top_qr_code(df_optical, offset_tip_pointer, get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index=None, to_delete_gt_divot_index=None):
     cloud = QRCodeCloud(7,7,10)
-    return register_divots(df_optical, offset_tip_pointer, 1, cloud, order_divot_index, to_delete_gt_divot_index)
+    return register_divots(df_optical, offset_tip_pointer, 1, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index, to_delete_gt_divot_index)
 
 # def register_divots_cube_qr_code(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
     # cloud = CubeQRCodeCloud(7,7,10)
     # return register_divots(df_optical, offset_tip_pointer, 1, cloud, order_divot_index, to_delete_gt_divot_index)
 
-def register_divots_seed_holder(df_optical, offset_tip_pointer, order_divot_index=None, to_delete_gt_divot_index=None):
+def register_divots_seed_holder(df_optical, offset_tip_pointer, get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index=None, to_delete_gt_divot_index=None):
     cloud = SeedHolderCloud()
-    return register_divots(df_optical, offset_tip_pointer, 3, cloud, order_divot_index, to_delete_gt_divot_index)
+    return register_divots(df_optical, offset_tip_pointer, 3, get_mat_m_to_o_series, get_mat_o_to_m_series, cloud, order_divot_index, to_delete_gt_divot_index)

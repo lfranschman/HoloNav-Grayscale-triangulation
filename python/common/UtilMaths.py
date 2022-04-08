@@ -17,6 +17,24 @@ except ImportError:
 
 BIG_NUMBER = 1000000000
 
+def polar_to_cartesian(phi, theta, r):
+    sin_theta = math.sin(theta)
+    return r*math.cos(phi)*sin_theta, r*math.sin(phi)*sin_theta, r*math.cos(theta)
+
+# from_pt, to_pt, up_vec shape (3,)
+def camera_look_at(from_pt, to_pt, up_vec = (0,-1,0)):
+    z_axis = normalize_vec3(to_pt - from_pt)
+    x_axis = np.cross(z_axis, up_vec)
+    y_axis = -np.cross(x_axis, z_axis)
+
+    mat44 = np.identity(4)
+    mat44[:3,0] = x_axis
+    mat44[:3,1] = y_axis
+    mat44[:3,2] = z_axis
+    mat44[:3,3] = from_pt
+
+    return mat44
+
 def vec3_to_vec4(vec3):
     dtype = None
     if isinstance(vec3,np.ndarray):
@@ -106,6 +124,9 @@ def rotation_mrp_matrix44(vec3):
         [        0,         0,         0, 1]
     ])
 
+def normalize_vec3(vec3):
+    return vec3/np.linalg.norm(vec3)
+
 def normalize_vec4(vec4):
     normalized_vec4 = vec4/np.linalg.norm(vec4[:3])
     normalized_vec4[3] = 1
@@ -122,16 +143,22 @@ def mul_mat44_vec4_list(mat44, vec4_list):
     return np.einsum("ij,kj->ik", vec4_list, mat44)
 
 # https://docs.opencv.org/4.5.3/d9/d0c/group__calib3d.html
-def projection_3d_point(p, distortion_coefficients, camera_proj):
+# p shape (3,)
+# distortion_coefficients shape (5,)
+# camera_proj (3,3)
+def projection_3d_point(p, distortion_coefficients, camera_proj, integer=True):
     x_p = p[0]/p[2]
     y_p = p[1]/p[2]
     r_2 = x_p*x_p + y_p*y_p
     x_dp = x_p*((1 + distortion_coefficients[0]*r_2 + distortion_coefficients[1]*r_2*r_2 + distortion_coefficients[4]*r_2*r_2*r_2)/(1)) + 2*distortion_coefficients[2]*x_p*y_p + distortion_coefficients[3]*(r_2 + 2*x_p*x_p)
     y_dp = y_p*((1 + distortion_coefficients[0]*r_2 + distortion_coefficients[1]*r_2*r_2 + distortion_coefficients[4]*r_2*r_2*r_2)/(1)) + 2*distortion_coefficients[3]*x_p*y_p + distortion_coefficients[2]*(r_2 + 2*y_p*y_p)
-    x = int(math.floor(camera_proj[0][0]*x_dp + camera_proj[0][2]))
-    y = int(math.floor(camera_proj[1][1]*y_dp + camera_proj[1][2]))
 
-    return np.array([x,y], dtype=np.uint32)
+    x = camera_proj[0][0]*x_dp + camera_proj[0][2]
+    y = camera_proj[1][1]*y_dp + camera_proj[1][2]
+
+    if integer:
+        return np.array([int(math.floor(x)),int(math.floor(y))], dtype=np.uint32)
+    return np.array([x,y])
 
 # input translation vector (4,), quaternion rotation (4,) and rig_to_camera (4,4)
 def get_mat_camera_to_world(translation_rig_to_world, rotation_rig_to_world, rig_to_camera):
@@ -286,3 +313,48 @@ def intersection_lines(pt1,pt2,pt3,pt4):
     z = (z1 + z2) / 2  # halfway point if they don't match
 
     return (x,y,z)
+
+# REF https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+# pt/a/b/c shape (2,)
+def barycentric(pt, a, b, c):
+    v0 = b - a
+    v1 = c - a
+    v2 = pt - a
+    d00 = np.dot(v0, v0)
+    d01 = np.dot(v0, v1)
+    d11 = np.dot(v1, v1)
+    d20 = np.dot(v2, v0)
+    d21 = np.dot(v2, v1)
+    denom = d00*d11 - d01*d01
+    if denom == 0:
+        return None
+    v = (d11*d20 - d01*d21)/denom
+    w = (d00*d21 - d01*d20)/denom
+    u = 1. - v - w
+    return (u,v,w)
+
+# REF https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
+# pt/v1/v2/v3 shape (2,)
+if False:
+    def point_in_triangle(pt, v1, v2, v3):
+        # p1/p2/p3 shape (2,)
+        def sign(p1, p2, p3):
+            return (p1[0] - p3[0])*(p2[1] - p3[1]) - (p2[0] - p3[0])*(p1[1] - p3[1])
+
+        d1 = sign(pt, v1, v2)
+        d2 = sign(pt, v2, v3)
+        d3 = sign(pt, v3, v1)
+
+        has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
+        has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
+
+        return not (has_neg and has_pos)
+
+# REF https://stackoverflow.com/questions/36387928/loop-for-points-in-2d-triangles
+# pt/p1/p2/p3 shape (2,)
+def point_in_triangle(pt, p1, p2, p3):
+    full = abs(p1[0]*(p2[1] - p3[1]) + p2[0]*(p3[1] - p1[1]) + p3[0]*(p1[1] - p2[1]))
+    first = abs(p1[0]*(p2[1] - pt[1]) + p2[0]*(pt[1] - p1[1]) + pt[0]*(p1[1] - p2[1]))
+    second = abs(p1[0]*(pt[1] - p3[1]) + pt[0]*(p3[1] - p1[1]) + p3[0]*(p1[1] - pt[1]))
+    third = abs(pt[0]*(p2[1] - p3[1]) + p2[0]*(p3[1] - pt[1]) + p3[0]*(pt[1] - p2[1]))
+    return abs(first + second + third - full) < .0000000001

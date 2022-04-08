@@ -4,13 +4,13 @@ import time
 import numpy as np
 import pandas as pd
 
-from File import save_pickle, load_pickle, is_file_exist
+from File import load_pickle, is_file_exist
 from UtilMaths import vec3_to_vec4, identity_matrix44, translation_matrix44, rotation_euler_matrix44, mul_mat44_vec4
 from Logging import log_print
 
 from view3d import View3D
-from calibration_helpers import get_mat_m_to_o_series, solve_equations, get_mat_q_to_w, get_mat_m_to_o, get_mat_w_to_o
-from divot_calibration import register_divots_front_qr_code, register_divots_left_qr_code, register_divots_right_qr_code, register_divots_top_qr_code, register_divots_seed_holder, pivot_calibration
+from calibration_helpers import get_mat_m_to_o_series, solve_equations, get_mat_q_to_w, get_mat_m_to_o, get_mat_w_to_o, get_pointer_offset_filename, get_mat_divots_filename, pointer_pivot_calibration, register_divots
+from divot_calibration import register_divots_front_qr_code, register_divots_left_qr_code, register_divots_right_qr_code, register_divots_top_qr_code, register_divots_seed_holder
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS, ACQUISITIONS_HOLOLENS, RESEARCH_MODE_CAMERA_NAMES
 
@@ -45,12 +45,6 @@ class CalibrationParameters:
         self.tip_unknown = tip_unknown
         self.end_callback = end_callback
 
-def get_pointer_offset_filename():
-    return config.folder + "pointer_offset.pickle"
-
-def get_mat_divots_filename(variable):
-    return config.folder + variable + ".pickle"
-
 class App:
     ACTION_CALIBRATION_OPTICAL_POINTER = 0
     ACTION_CALIBRATION_OPTICAL_FRONT_QR_CODE = 1
@@ -83,38 +77,38 @@ class App:
             self.slider_value["optical"] = 0
             self.set_temporal_shift_optical(config.temporal_shift_optical)
 
-            self.optical_calibration_starting_time = config.optical_calibration_starting_time
-            self.optical_calibration_ending_time = config.optical_calibration_ending_time
-            if config.optical_calibration_starting_time == -1:
+            self.optical_calibration_starting_time = config.optical_calibration_starting_time[config.sub_config]
+            self.optical_calibration_ending_time = config.optical_calibration_ending_time[config.sub_config]
+            if self.optical_calibration_starting_time == -1:
                 self.optical_calibration_starting_time = self.slider_value["optical"]
                 self.optical_calibration_ending_time = self.acquisitions["optical"].index.size - 1
 
             self.offset_tip_pointer = NDI_STYLUS_TOOL_TIP_OFFSET
-            if is_file_exist(get_pointer_offset_filename()):
-                self.offset_tip_pointer = load_pickle(get_pointer_offset_filename())
+            if is_file_exist(get_pointer_offset_filename(config)):
+                self.offset_tip_pointer = load_pickle(get_pointer_offset_filename(config))
                 log_print(f"offset_tip_pointer {self.offset_tip_pointer}")
             # self.pos_t_m = [0,0,0]
             self.pos_t_m = PROBE_TIP_OPTICAL_DEFAULT
 
             self.mat_qf_to_m = MAT_QF_TO_M_DEFAULT # qr code to optical marker (8700339)
-            if is_file_exist(get_mat_divots_filename("mat_qf_to_m")):
-                self.mat_qf_to_m = load_pickle(get_mat_divots_filename("mat_qf_to_m"))
+            if is_file_exist(get_mat_divots_filename(config, "mat_qf_to_m")):
+                self.mat_qf_to_m = load_pickle(get_mat_divots_filename(config, "mat_qf_to_m"))
                 log_print(f"mat_qf_to_m {self.mat_qf_to_m}")
             self.mat_qf_to_ql = MAT_QF_TO_QL_DEFAULT
-            if is_file_exist(get_mat_divots_filename("mat_qf_to_ql")):
-                self.mat_qf_to_ql = load_pickle(get_mat_divots_filename("mat_qf_to_ql"))
+            if is_file_exist(get_mat_divots_filename(config, "mat_qf_to_ql")):
+                self.mat_qf_to_ql = load_pickle(get_mat_divots_filename(config, "mat_qf_to_ql"))
                 log_print(f"mat_qf_to_ql {self.mat_qf_to_ql}")
             self.mat_qf_to_qr = MAT_QF_TO_QR_DEFAULT
-            if is_file_exist(get_mat_divots_filename("mat_qf_to_qr")):
-                self.mat_qf_to_qr = load_pickle(get_mat_divots_filename("mat_qf_to_qr"))
+            if is_file_exist(get_mat_divots_filename(config, "mat_qf_to_qr")):
+                self.mat_qf_to_qr = load_pickle(get_mat_divots_filename(config, "mat_qf_to_qr"))
                 log_print(f"mat_qf_to_qr {self.mat_qf_to_qr}")
             self.mat_qf_to_qt = MAT_QF_TO_QT_DEFAULT
-            if is_file_exist(get_mat_divots_filename("mat_qf_to_qt")):
-                self.mat_qf_to_qt = load_pickle(get_mat_divots_filename("mat_qf_to_qt"))
+            if is_file_exist(get_mat_divots_filename(config, "mat_qf_to_qt")):
+                self.mat_qf_to_qt = load_pickle(get_mat_divots_filename(config, "mat_qf_to_qt"))
                 log_print(f"mat_qf_to_qt {self.mat_qf_to_qt}")
             self.mat_s_to_m2 = MAT_S_TO_M2_DEFAULT # seed to optical marker 2 (8700449)
-            if is_file_exist(get_mat_divots_filename("mat_s_to_m2")):
-                self.mat_s_to_m2 = load_pickle(get_mat_divots_filename("mat_s_to_m2"))
+            if is_file_exist(get_mat_divots_filename(config, "mat_s_to_m2")):
+                self.mat_s_to_m2 = load_pickle(get_mat_divots_filename(config, "mat_s_to_m2"))
                 log_print(f"mat_s_to_m2 {self.mat_s_to_m2}")
 
             # self.pos_s_o = [0,0,0]
@@ -133,9 +127,10 @@ class App:
             self.mat_w_to_o = identity_matrix44()
 
         if not self.acquisitions["qr_code_position"].empty:
-            self.qr_code_calibration_starting_time = config.qr_code_calibration_starting_time
-            self.qr_code_calibration_ending_time = config.qr_code_calibration_ending_time
-            if config.qr_code_calibration_starting_time == -1:
+            self.qr_code_optical_calibration_starting_time = config.qr_code_optical_calibration_starting_time
+            self.qr_code_calibration_starting_time = config.qr_code_calibration_starting_time[config.sub_config]
+            self.qr_code_calibration_ending_time = config.qr_code_calibration_ending_time[config.sub_config]
+            if self.qr_code_calibration_starting_time == -1:
                 self.qr_code_calibration_starting_time = self.slider_value["qr_code_position"]
                 self.qr_code_calibration_ending_time = self.acquisitions["qr_code_position"].index.size - 1
 
@@ -146,17 +141,17 @@ class App:
             self.pos_s_w = SEED_W_DEFAULT
 
             if not self.acquisitions["optical"].empty:
-                qr_code_index = self.qr_code_calibration_starting_time
+                qr_code_index = self.qr_code_optical_calibration_starting_time
                 timestamp = self.df["qr_code_position"].index[qr_code_index]
                 qr_code_probe_series = self.df["qr_code_position"].loc[timestamp]
+                if qr_code_probe_series['q1_m44'] != 0: # front qr code was detected for this timestamp
+                    # todo make an interpolation between the two close positions
+                    optical_index = self.df_probe.index.get_loc(timestamp, method='nearest')
+                    optical_timestamp = self.df_probe.index[optical_index]
+                    optical_probe_series = self.df_probe.loc[optical_timestamp]
+                    print(f"compute mat_w_to_o, timestamp difference between optical/qr code {(timestamp - optical_timestamp).total_seconds()} s")
 
-                # todo make an interpolation between the two close positions
-                optical_index = self.df_probe.index.get_loc(timestamp, method='nearest')
-                optical_timestamp = self.df_probe.index[optical_index]
-                optical_probe_series = self.df_probe.loc[optical_timestamp]
-                print(f"compute mat_w_to_o, timestamp difference between optical/qr code {(timestamp - optical_timestamp).total_seconds()} s")
-
-                self.mat_w_to_o, _ = get_mat_w_to_o(qr_code_probe_series, optical_probe_series, self.mat_qf_to_m)
+                    self.mat_w_to_o, _ = get_mat_w_to_o(qr_code_probe_series, optical_probe_series, self.mat_qf_to_m)
 
     def available_hololens_acquisitions(self):
         for acquisition in ACQUISITIONS_HOLOLENS:
@@ -259,36 +254,14 @@ class App:
                     self.register_divots(register_divots_seed_holder, "mat_s_to_m2", None, True, config.order_divot_index, config.to_delete_gt_divot_index)
 
     def pointer_pivot_calibration(self):
-        offset_tip_pointer = pivot_calibration(self.acquisitions["pointer"])
-
-        if False:
-        # if True:
-            offset_tip_pointer2 = load_pickle(get_pointer_offset_filename())
-            offset_tip_pointer = (offset_tip_pointer + offset_tip_pointer2)/2
-
-        save_pickle(offset_tip_pointer, get_pointer_offset_filename())
-
-        log_print(f"offset_tip_pointer {offset_tip_pointer}")
-
+        offset_tip_pointer = pointer_pivot_calibration(self.acquisitions["pointer"], config, average_with_previous_calibration=False)
         self.mutex_update.acquire()
         self.offset_tip_pointer = offset_tip_pointer
         self.has_to_update = True
         self.mutex_update.release()
 
     def register_divots(self, register_divots_fct, variable, mat_qf_to_m=None, inverse=True, order_divot_index=None, to_delete_gt_divot_index=None):
-        log_print("register_divots")
-        # dpg.lock_mutex()
-        divots_pts, cloud_pts, mat_marker_to_reference = register_divots_fct(self.acquisitions["optical"], vec3_to_vec4(self.offset_tip_pointer), order_divot_index, to_delete_gt_divot_index)
-        # dpg.unlock_mutex()
-
-        mat = mat_marker_to_reference
-        if inverse:
-            mat = np.linalg.inv(mat) # mat_reference_to_marker
-        elif mat_qf_to_m is not None:
-            mat = np.matmul(mat, mat_qf_to_m) # mat_qf_to_reference
-
-        save_pickle(mat, get_mat_divots_filename(variable))
-        print(f"{variable} {mat}")
+        mat, divots_pts, cloud_pts = register_divots(self.acquisitions["optical"], config, self.offset_tip_pointer, register_divots_fct, variable, mat_qf_to_m, inverse, order_divot_index, to_delete_gt_divot_index)
 
         self.mutex_update.acquire()
         self.registration_divots_pts = divots_pts
@@ -316,7 +289,7 @@ class App:
         log_print(f"self.pos_s_o {self.pos_s_o}")
         # mat_m2_to_o = get_mat_m_to_o_series(self.df["optical"].loc[self.df["optical"].index[536]], optical_marker_id=3) # 2021_12_02
         # mat_m2_to_o = get_mat_m_to_o_series(self.df["optical"].loc[self.df["optical"].index[1171]], optical_marker_id=3) # 2022_01_28
-        mat_m2_to_o = get_mat_m_to_o_series(self.df["optical"].loc[self.df["optical"].index[self.optical_calibration_starting_time]], optical_marker_id=3) # 2022_01_28
+        mat_m2_to_o = get_mat_m_to_o_series(self.df["optical"].loc[self.df["optical"].index[self.optical_calibration_starting_time]], optical_marker_id=3)
         pos_gt_s_s = np.array((0,0,0,1))
         pos_gt_s_m2 = mul_mat44_vec4(self.mat_s_to_m2, pos_gt_s_s)
         pos_gt_s_o = mul_mat44_vec4(mat_m2_to_o, pos_gt_s_m2)
@@ -325,8 +298,9 @@ class App:
         log_print(f"distance_error {distance_error}")
 
     def qr_code_calibration(self, calibration_parameters):
-        calibration_starting_datetime = (self.df["qr_code_position"].index[self.qr_code_calibration_starting_time]) # - datetime.timedelta(hours=2))
-        calibration_ending_datetime = (self.df["qr_code_position"].index[self.qr_code_calibration_ending_time]) # - datetime.timedelta(hours=2))
+        timestamp = self.df["qr_code_position"].index[self.qr_code_calibration_starting_time]
+        calibration_starting_datetime = timestamp
+        calibration_ending_datetime = self.df["qr_code_position"].index[self.qr_code_calibration_ending_time]
         log_print(f"start {calibration_starting_datetime} end {calibration_ending_datetime}")
 
         pos_s_w, pos_t_q, residuals, residuals_timestamp = solve_equations(self.acquisitions["magnetic_seed"], self.df["qr_code_position"], calibration_starting_datetime, calibration_ending_datetime, get_mat=get_mat_q_to_w, init_seed=calibration_parameters.init_seed, init_tip=calibration_parameters.init_tip, tip_unknown=calibration_parameters.tip_unknown)
@@ -341,11 +315,19 @@ class App:
 
         # compute distance error
         log_print(f"self.pos_s_w {self.pos_s_w}")
-        mat_m2_to_o = get_mat_m_to_o_series(self.df["optical"].loc[self.df["optical"].index[self.qr_code_calibration_starting_time]], optical_marker_id=3) # 2021_12_02
+
+        # todo make an interpolation between the two close positions
+        optical_index = self.df_optical_seed.index.get_loc(timestamp, method='nearest')
+        optical_timestamp = self.df_optical_seed.index[optical_index]
+        optical_probe_series = self.df_optical_seed.loc[optical_timestamp]
+        print(f"qr_code_calibration timestamp difference between optical/qr code {(timestamp - optical_timestamp).total_seconds()} s")
+
+        mat_m2_to_o = get_mat_m_to_o_series(optical_probe_series) #, optical_marker_id=3)
         pos_gt_s_s = np.array((0,0,0,1))
         pos_gt_s_m2 = mul_mat44_vec4(self.mat_s_to_m2, pos_gt_s_s)
         pos_gt_s_o = mul_mat44_vec4(mat_m2_to_o, pos_gt_s_m2)
         log_print(f"pos_gt_s_o {pos_gt_s_o}")
         pos_s_o = mul_mat44_vec4(self.mat_w_to_o, vec3_to_vec4(pos_s_w))
+        log_print(f"pos_s_o {pos_s_o}")
         distance_error = np.linalg.norm(pos_s_o[:3] - pos_gt_s_o[:3])
         log_print(f"distance_error {distance_error}")

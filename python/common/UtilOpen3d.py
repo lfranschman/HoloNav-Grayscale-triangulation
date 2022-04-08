@@ -12,7 +12,7 @@ SCALE_UNIT = 1 # in mm
 
 OPTICAL_SPHERE_RADIUS = 10*SCALE_UNIT # in mm
 
-COEF_PROJECTION = 10 # we want the projection long enough to reach the projected 2d image
+COEF_PROJECTION = 20 # we want the projection long enough to reach the projected 2d image
 
 # https://github.com/isl-org/Open3D/blob/master/examples/python/visualization/non_blocking_visualization.py
 # http://www.open3d.org/docs/release/python_api/open3d.geometry.TriangleMesh.html

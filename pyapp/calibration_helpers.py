@@ -1,10 +1,15 @@
 import time
+import math
+import copy
 import numpy as np
 import scipy
 import scipy.optimize # fsolve, root, least_squares
 
 from Logging import log_print
-from UtilMaths import get_mat_camera_to_world, get_mat_quaternion, get_inverse_mat_quaternion, mul_mat44_vec4_list, vec3_list_to_vec4_list
+from UtilMaths import get_mat_camera_to_world, get_mat_quaternion, get_inverse_mat_quaternion, mul_mat44_vec4, normalize_vec4, mul_mat44_vec4_list, vec3_list_to_vec4_list, point_in_triangle, barycentric, vec3_to_vec4, polar_to_cartesian
+from File import load_pickle, save_pickle
+
+from divot_calibration import pivot_calibration
 
 def get_mat_c_to_w_series(series):
     translation_rig_to_world = [series['cam_to_w_translation_x'], series['cam_to_w_translation_y'], series['cam_to_w_translation_z']]
@@ -34,11 +39,53 @@ def get_mat_q_to_w(df_qr_code, timestamp, qr_code_id = 0):
 
 # lut shape (2, height*2 + 1, width*2 + 1)
 # output shape (3,)
+# we take the value in the middle of the pixel (x + 0.5, y + 0.5)
 def get_lut_projection_pixel(lut, x, y):
     # width = (lut[0].shape[1] - 1)//2
     # index = (y*2 + 1)*lut[0].shape[1] + (x*2 + 1) # we take the value in the middle of the pixel (x + 0.5, y + 0.5)
     # return [lut[0][index], lut[1][index], 1]
     return [lut[0][int(y*2 + 1), int(x*2 + 1)], lut[1][int(y*2 + 1), int(x*2 + 1)], 1]
+
+# brute force to find the position in the 2D camera image coordinate space (TODO improve this, too slow) -> use intrinsic + distortion coefficients instead
+# lut shape (2, height*2 + 1, width*2 + 1)
+# (x,y,z) in camera space
+def get_lut_pixel_image(lut, x, y, z):
+    if z <= 0:
+        return None
+
+    # find projection line when z = 1, line parametric equation -> origin + t.([x,y,z] - origin)
+    t = 1/z
+    x = t*x
+    y = t*y
+    # print(f"t {t} x {x} y {y}")
+
+    # find the 3 closest points
+    closest = {0:[(-1,-1),(-1,-1),99999999999], 1:[(-1,-1),(-1,-1),99999999999], 2:[(-1,-1),(-1,-1),99999999999]}
+    CLOSEST_CAMERA_SPACE = 0
+    CLOSEST_IMAGE_SPACE = 1
+    CLOSEST_DISTANCE = 2
+    for j in range(lut[0].shape[0]):
+        for i in range(lut[0].shape[1]):
+            dist = (x - lut[0][j,i])**2 + (y - lut[1][j,i])**2
+            for k in range(3):
+                if dist < closest[k][CLOSEST_DISTANCE]:
+                    if k <= 1:
+                        closest[2] = copy.copy(closest[1])
+                    if k == 0:
+                        closest[1] = copy.copy(closest[0])
+                    closest[k] = [(lut[0][j,i], lut[1][j,i]), (i/2, j/2), dist]
+                    break
+
+        # print(f"closest {closest}")
+        # if point_in_triangle((x,y), closest[0][CLOSEST_CAMERA_SPACE], closest[1][CLOSEST_CAMERA_SPACE], closest[2][CLOSEST_CAMERA_SPACE]):
+        b = barycentric(np.array((x,y)), np.array((closest[0][CLOSEST_CAMERA_SPACE])), np.array((closest[1][CLOSEST_CAMERA_SPACE])), np.array((closest[2][CLOSEST_CAMERA_SPACE])))
+        if b is None:
+            return None
+        image_x = b[0]*closest[0][CLOSEST_IMAGE_SPACE][0] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][0] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][0]
+        image_y = b[0]*closest[0][CLOSEST_IMAGE_SPACE][1] + b[1]*closest[1][CLOSEST_IMAGE_SPACE][1] + b[2]*closest[2][CLOSEST_IMAGE_SPACE][1]
+        return (image_x, image_y)
+
+    return None
 
 # lut_x/lut_y shape (_, _)
 # output shape (_*_, 3)
@@ -107,8 +154,6 @@ def get_3d_points_in_world_space(frame, depth_image, lut_projection, clamp_max, 
     points, remove_ids = get_3d_points_in_camera_space(depth_image, lut_projection, clamp_max) # shape (height*width - removed points, 3)
     # print(points.shape)
     homogeneous_points = vec3_list_to_vec4_list(points) # shape (height*width - removed points, 4)
-
-    # mat_c_to_w = np.matmul(mat_c_to_w, rotation_euler_matrix44((0,0,180), degrees=True))
 
     # mat_c_to_w = get_mat_c_to_w_series(series)
     homogeneous_points = mul_mat44_vec4_list(mat_c_to_w, homogeneous_points) # shape (height*width - removed points, 4)
@@ -201,134 +246,38 @@ def get_mat_m_to_o(df_markers, timestamp):
         # translation_vec.append(float(df_markers['Tx'][timestamp]))
     return get_mat_m_to_o_series(df_markers.loc[timestamp])
 
-# vars type np.float64
-# x_array shape(_,5)
-# y_array shape(_,5)
-# z_array shape(_,5)
-# d2_array shape(_,)
-def seed_tip_equations(x_array,y_array,z_array,d2_array, vars):
-    sx, sy, sz, tx, ty, tz = vars # seed position in W CS (sx, sy, sz) and tip position in Q CS (tx, ty, tz)
+def get_pointer_offset_filename(config):
+    return config.folder + "pointer_offset.pickle"
 
-    x_array = np.matmul(x_array,[sx, tx, ty, tz, 1]) # shape(_,)
-    y_array = np.matmul(y_array,[sy, tx, ty, tz, 1]) # shape(_,)
-    z_array = np.matmul(z_array,[sz, tx, ty, tz, 1]) # shape(_,)
+def get_mat_divots_filename(config, variable):
+    return config.folder + variable + ".pickle"
 
-    return x_array*x_array + y_array*y_array + z_array*z_array - d2_array # shape(_,)
+def pointer_pivot_calibration(df, config, average_with_previous_calibration):
+    offset_tip_pointer = pivot_calibration(df, get_mat_m_to_o_series)
 
-# vars type np.float64
-# x_array shape(_,)
-# y_array shape(_,)
-# z_array shape(_,)
-# d2_array shape(_,)
-def seed_equations(x_array,y_array,z_array,d2_array, vars):
-    sx, sy, sz = vars # seed position in W CS (sx, sy, sz)
+    if average_with_previous_calibration:
+        offset_tip_pointer2 = load_pickle(get_pointer_offset_filename(config))
+        offset_tip_pointer = (offset_tip_pointer + offset_tip_pointer2)/2
 
-    x_array = sx + x_array # shape(_,)
-    y_array = sy + y_array # shape(_,)
-    z_array = sz + z_array # shape(_,)
+    save_pickle(offset_tip_pointer, get_pointer_offset_filename(config))
 
-    return x_array*x_array + y_array*y_array + z_array*z_array - d2_array # shape(_,)
+    log_print(f"offset_tip_pointer {offset_tip_pointer}")
 
-def solve_equations(df_magnetic_seed, df_probe_position, calibration_starting_time, calibration_ending_time, get_mat=get_mat_m_to_o, init_seed=(0,0,0), init_tip=(0,0,0), tip_unknown=True):
-    starting_time = time.time()
+    return offset_tip_pointer
 
-    probe_starting_index = df_probe_position.index.get_loc(calibration_starting_time, method='bfill') # ffill, next or equal
-    probe_ending_index = df_probe_position.index.get_loc(calibration_ending_time, method='ffill') # bfill, previous or equal
+def register_divots(df, config, offset_tip_pointer, register_divots_fct, variable, mat_qf_to_m=None, inverse=True, order_divot_index=None, to_delete_gt_divot_index=None):
+    log_print("register_divots")
+    # dpg.lock_mutex()
+    divots_pts, cloud_pts, mat_marker_to_reference = register_divots_fct(df, vec3_to_vec4(offset_tip_pointer), get_mat_m_to_o_series, get_mat_o_to_m_series, order_divot_index, to_delete_gt_divot_index)
+    # dpg.unlock_mutex()
 
-    x_array = []
-    y_array = []
-    z_array = []
-    d2_array = []
-    timestamps = []
-    for i in range(probe_starting_index, probe_ending_index + 1):
-        timestamp = df_probe_position.index[i]
+    mat = mat_marker_to_reference
+    if inverse:
+        mat = np.linalg.inv(mat) # mat_reference_to_marker
+    elif mat_qf_to_m is not None:
+        mat = np.matmul(mat, mat_qf_to_m) # mat_qf_to_reference
 
-        previous_index = df_magnetic_seed.index.get_loc(timestamp, method='ffill')
-        previous_timestamp = df_magnetic_seed.index[previous_index]
-        next_index = df_magnetic_seed.index.get_loc(timestamp, method='bfill')
-        next_timestamp = df_magnetic_seed.index[next_index]
-        # closest_index = df_magnetic_seed.index.get_loc(timestamp, method='nearest')
-        # closest_timestamp = df_magnetic_seed.index[closest_index]
+    save_pickle(mat, get_mat_divots_filename(config, variable))
+    print(f"{variable} {mat}")
 
-        if previous_timestamp < timestamp:
-            previous_diff_time = timestamp - previous_timestamp # timedelta
-        else:
-            previous_diff_time = previous_timestamp - timestamp # timedelta
-
-        if next_timestamp < timestamp:
-            next_diff_time = timestamp - next_timestamp # timedelta
-        else:
-            next_diff_time = next_timestamp - timestamp # timedelta
-
-        if previous_index == next_index or (previous_diff_time.microseconds < 25000 and next_diff_time.microseconds < 25000): # magnetic seed tracking frequency should be around ~40-50Hz -> every min ~25000 us, we don't want to have measurements too old/early
-            timestamps.append(timestamp)
-
-            m = get_mat(df_probe_position, timestamp)
-
-            if previous_index == next_index: # timestamp perfect match:
-                d = df_magnetic_seed.loc[previous_timestamp][0] # milimeter
-            else:
-                coef = (timestamp - previous_timestamp)/(next_timestamp - previous_timestamp)
-                d = (1-coef)*df_magnetic_seed.loc[previous_timestamp][0] + coef*df_magnetic_seed.loc[next_timestamp][0] # milimeter
-
-            # equation = (sx - tx*m[0][0] - ty*m[0][1] - tz*m[0][2] - m[0][3])**2 \
-            #      + (sy - tx*m[1][0] - ty*m[1][1] - tz*m[1][2] - m[1][3])**2 \
-            #      + (sz - tx*m[2][0] - ty*m[2][1] - tz*m[2][2] - m[2][3])**2 \
-            #      - d**2
-
-            if tip_unknown:
-                x_array.append([1, -m[0][0], -m[0][1], -m[0][2], -m[0][3]])
-                y_array.append([1, -m[1][0], -m[1][1], -m[1][2], -m[1][3]])
-                z_array.append([1, -m[2][0], -m[2][1], -m[2][2], -m[2][3]])
-            else:
-                tx, ty, tz = init_tip
-                x_array.append(-tx*m[0][0] - ty*m[0][1] - tz*m[0][2] - m[0][3])
-                y_array.append(-tx*m[1][0] - ty*m[1][1] - tz*m[1][2] - m[1][3])
-                z_array.append(-tx*m[2][0] - ty*m[2][1] - tz*m[2][2] - m[2][3])
-
-            d2_array.append(d**2)
-
-    x_array = np.array(x_array) # x_array shape(_,5) or x_array shape(_,)
-    y_array = np.array(y_array) # y_array shape(_,5) or x_array shape(_,)
-    z_array = np.array(z_array) # z_array shape(_,5) or x_array shape(_,)
-    d2_array = np.array(d2_array) # d2_array shape(_,)
-
-    elasped_time = time.time() - starting_time
-    log_print(f"elasped_time {elasped_time:.1f} s, probe_start_id {probe_starting_index} probe_end_id {probe_ending_index} {probe_ending_index - probe_starting_index + 1} x_array.shape {x_array.shape} y_array.shape {y_array.shape} z_array.shape {z_array.shape} d2_array.shape {d2_array.shape}")
-
-    starting_time = time.time()
-    if tip_unknown:
-        ret = scipy.optimize.least_squares(lambda vars:seed_tip_equations(x_array,y_array,z_array,d2_array, vars), list(init_seed) + list(init_tip)) #,method='lm',ftol=1e-15,xtol=1e-15,gtol=1e-15)
-    else:
-        ret = scipy.optimize.least_squares(lambda vars:seed_equations(x_array,y_array,z_array,d2_array, vars), init_seed) #,ftol=1e-15,xtol=1e-15,gtol=1e-15)
-    elasped_time = time.time() - starting_time
-    log_print(f"least_squares elasped_time {elasped_time:.1f} s")
-    log_print(f"seed pos {ret['x'][:3]}")
-    if tip_unknown:
-        log_print(f"probe tip {ret['x'][3:]}")
-
-    print(ret)
-
-    # check/debug test
-    sx, sy, sz = ret['x'][:3] # seed position in W CS (sx, sy, sz)
-    if tip_unknown:
-        tx, ty, tz = ret['x'][3:] # tip position in Q CS (tx, ty, tz)
-        x_array = np.matmul(x_array,[sx, tx, ty, tz, 1]) # shape(_,)
-        y_array = np.matmul(y_array,[sy, tx, ty, tz, 1]) # shape(_,)
-        z_array = np.matmul(z_array,[sz, tx, ty, tz, 1]) # shape(_,)
-    else:
-        x_array = sx + x_array # shape(_,)
-        y_array = sy + y_array # shape(_,)
-        z_array = sz + z_array # shape(_,)
-    residuals2 = x_array*x_array + y_array*y_array + z_array*z_array - d2_array # shape(_,)
-    print(f"check sum substraction residuals {np.sum(np.array(ret['fun']) - residuals2)} (should be 0.0)")
-    # print(repr(residuals2))
-    residuals_distances = np.sqrt(x_array*x_array + y_array*y_array + z_array*z_array) - np.sqrt(d2_array) # shape(_,)
-    # print(repr(residuals_distances))
-    residuals_distances = np.abs(residuals_distances)
-    log_print(f"absolute residuals mean {np.mean(residuals_distances):.2f} median {np.median(residuals_distances):.2f} min {np.min(residuals_distances):.2f} max {np.max(residuals_distances):.2f}")
-    log_print(f"percentile 25th {np.percentile(residuals_distances, 25):.2f} 75th {np.percentile(residuals_distances, 75):.2f} 95th {np.percentile(residuals_distances, 95):.2f} 99th {np.percentile(residuals_distances, 99):.2f}")
-
-    if tip_unknown:
-        return ret['x'][:3], ret['x'][3:], residuals_distances, timestamps
-    return ret['x'][:3], list(init_tip), residuals_distances, timestamps
+    return mat, divots_pts, cloud_pts

@@ -7,9 +7,9 @@ import dearpygui.dearpygui as dpg
 from Logging import set_logger, log_print
 from UtilDearPyGui import DpgLogger, help_widget
 
-from DataAcquisition import UTC_SHIFT, ACQUISITIONS
-# from DataAcquisition import ACQUISITIONS
-# UTC_SHIFT = 0
+from DataAcquisition import ACQUISITIONS
+# from DataAcquisition import UTC_SHIFT, ACQUISITIONS
+UTC_SHIFT = 0
 from visuapp import App, CalibrationParameters, ALL_VISIBILITY
 
 ACTIONS = {"calibration_optical_pointer":App.ACTION_CALIBRATION_OPTICAL_POINTER
@@ -325,14 +325,14 @@ def start_test_gui(app):
             with dpg.group(horizontal=True):
                 dpg.add_text("calib optical")
                 dpg.add_button(label="pointer", callback=action_callback, user_data=app, tag="calibration_optical_pointer")
-            if not app.acquisitions["probe"].empty:
-                dpg.add_text("qr code")
-                dpg.add_button(label="front", callback=action_callback, user_data=app, tag="calibration_optical_front_qr_code")
-                dpg.add_button(label="left", callback=action_callback, user_data=app, tag="calibration_optical_left_qr_code")
-                dpg.add_button(label="right", callback=action_callback, user_data=app, tag="calibration_optical_right_qr_code")
-                dpg.add_button(label="top", callback=action_callback, user_data=app, tag="calibration_optical_top_qr_code")
-            if not app.acquisitions["optical_seed"].empty:
-                dpg.add_button(label="seed", callback=action_callback, user_data=app, tag="calibration_optical_seed")
+                if not app.acquisitions["probe"].empty:
+                    dpg.add_text("qr code")
+                    dpg.add_button(label="front", callback=action_callback, user_data=app, tag="calibration_optical_front_qr_code")
+                    dpg.add_button(label="left", callback=action_callback, user_data=app, tag="calibration_optical_left_qr_code")
+                    dpg.add_button(label="right", callback=action_callback, user_data=app, tag="calibration_optical_right_qr_code")
+                    dpg.add_button(label="top", callback=action_callback, user_data=app, tag="calibration_optical_top_qr_code")
+                if not app.acquisitions["optical_seed"].empty:
+                    dpg.add_button(label="seed", callback=action_callback, user_data=app, tag="calibration_optical_seed")
 
         if not app.acquisitions["magnetic_seed"].empty:
             timestamps_seed, distances_seed = get_time_seed_distances(app.acquisitions["magnetic_seed"])

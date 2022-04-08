@@ -10,7 +10,7 @@ from File import save_pickle, load_pickle
 from CommunicationHL2 import Communication, CommunicationLUTCameraProjection
 
 # UTC_SHIFT = 2 # in hours
-UTC_SHIFT = 1 # in hours
+# UTC_SHIFT = 1 # in hours
 
 HOLOLENS_METER_TO_MILIMETER_SCALE = 1000
 # HOLOLENS_METER_TO_MILIMETER_SCALE = 1
@@ -29,10 +29,13 @@ MAX_LT_DEPTH = 1200 # only for visualization purpose
 MAX_LT_AB = 11000 # only for visualization purpose
 
 class DataAcquisition:
+    VERSION = 1
+
     def __init__(self):
         self.acquisitions = {}
+        self.acquisitions ["version"] = DataAcquisition.VERSION
 
-        self.acquisitions["magnetic_seed"] = pd.DataFrame([], columns = ['time', 'distance', 'angle', 'azimut'])
+        self.acquisitions["magnetic_seed"] = pd.DataFrame([], columns = ['time', 'distance', 'angle', 'azimut', 'x', 'y', 'z'])
         self.acquisitions["magnetic_seed"] = self.acquisitions["magnetic_seed"].set_index('time')
 
         cols = ['time']
@@ -154,14 +157,14 @@ class DataAcquisition:
                 elif communication.action == Communication.ACTION_SEND_QR_CODE_POSITION:
                     df = self.acquisitions["qr_code_position"]
 
-                communication.timestamp = communication.timestamp - datetime.timedelta(hours=UTC_SHIFT)
+                # communication.timestamp = communication.timestamp - datetime.timedelta(hours=UTC_SHIFT)
 
                 # if communication.timestamp in df.index:
                 if False:
                     log_print(f"error add_communication {communication.timestamp} already in dataframe")
                 else:
                     if communication.action == Communication.ACTION_SEND_QR_CODE_POSITION:
-                        qr_codes_params = [(0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.),(0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.),(0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.),(0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.)]
+                        qr_codes_params = [[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]]
                         if communication.qr_code_ids is not None:
                             for i in range(len(communication.qr_code_ids)):
                                 communication.qr_code_transforms[i][3] = communication.qr_code_transforms[i][3]*HOLOLENS_METER_TO_MILIMETER_SCALE
@@ -198,10 +201,14 @@ class DataAcquisition:
         save_pickle(self.acquisitions, filename)
         self.general_mutex.release()
 
-    def load_data(self, filename, prepare_data=True):
+    def load_data(self, filename, prepare_data=True, check_version=True):
         self.general_mutex.acquire()
 
         self.acquisitions = load_pickle(filename)
+
+        if check_version and ("version" not in self.acquisitions or self.acquisitions["version"] != DataAcquisition.VERSION):
+            print(f"version {self.acquisitions['version'] if 'version' in self.acquisitions else '0'} of the file is old, update the file first")
+            assert False
 
         # debug, remove some acquisition
         # self.acquisitions['magnetic_seed'] = self.acquisitions['magnetic_seed'][0:0]
@@ -257,6 +264,12 @@ class DataAcquisition:
             print(f"self.acquisitions['lt_depth_cam_lut_projection'][0].shape {self.acquisitions['lt_depth_cam_lut_projection'][0].shape}")
 
         if prepare_data:
+            for acquisition in ACQUISITIONS + ['magnetic_seed']:
+                # if self.acquisitions[acquisition].index.size != 0:
+                    # self.acquisitions[acquisition].index = self.acquisitions[acquisition].index + pd.Timedelta(hours=UTC_SHIFT)
+                if self.acquisitions[acquisition].index.size != 0 and self.acquisitions[acquisition].index.tzinfo is None:
+                    self.acquisitions[acquisition].index = self.acquisitions[acquisition].index.tz_localize('CET')
+
             if self.acquisitions["qr_code_position"].index.size != 0:
                 # for now, remove qr code positions when qr code 1 is not visible
                 # if True:
@@ -268,42 +281,34 @@ class DataAcquisition:
                 self.acquisitions["optical"] = self.acquisitions["optical"].drop([
                      'frame 1','unknown 1','nb markers 1','status 1.1','status 1.2','status 1.3','status 1.4'
                     ,'frame 2','unknown 2','nb markers 2','status 2.1','status 2.2','status 2.3','status 2.4'
-                    ,'frame 3','unknown 3','nb markers 3','status 3.1','status 3.2','status 3.3','status 3.4' ],axis=1)
+                    ,'frame 3','unknown 3','nb markers 3','status 3.1','status 3.2','status 3.3','status 3.4'
+
+                    , 'err 1'
+                    , 'tx 1.1', 'ty 1.1', 'tz 1.1', 'tx 1.2', 'ty 1.2', 'tz 1.2', 'tx 1.3', 'ty 1.3', 'tz 1.3', 'tx 1.4', 'ty 1.4', 'tz 1.4'
+                    , 'err 2'
+                    , 'tx 2.1', 'ty 2.1', 'tz 2.1', 'tx 2.2', 'ty 2.2', 'tz 2.2', 'tx 2.3', 'ty 2.3', 'tz 2.3', 'tx 2.4', 'ty 2.4', 'tz 2.4'
+                    , 'err 3'
+                    , 'tx 3.1', 'ty 3.1', 'tz 3.1', 'tx 3.2', 'ty 3.2', 'tz 3.2', 'tx 3.3', 'ty 3.3', 'tz 3.3', 'tx 3.4', 'ty 3.4', 'tz 3.4' ],axis=1)
             self.acquisitions["probe"] = None
             self.acquisitions["pointer"] = None
             self.acquisitions["optical_seed"] = None
-            if True:
-                self.acquisitions["probe"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 1'] != 'Enabled'].index)
-                self.acquisitions["probe"] = self.acquisitions["probe"].drop(['status 1', 'err 1'
-                    , 'tx 1.1', 'ty 1.1', 'tz 1.1', 'tx 1.2', 'ty 1.2', 'tz 1.2', 'tx 1.3', 'ty 1.3', 'tz 1.3', 'tx 1.4', 'ty 1.4', 'tz 1.4'
-                    , 'status 2', 'err 2'
-                    , 'tx 2.1', 'ty 2.1', 'tz 2.1', 'tx 2.2', 'ty 2.2', 'tz 2.2', 'tx 2.3', 'ty 2.3', 'tz 2.3', 'tx 2.4', 'ty 2.4', 'tz 2.4'
-                    , 'status 3', 'err 3'
-                    , 'tx 3.1', 'ty 3.1', 'tz 3.1', 'tx 3.2', 'ty 3.2', 'tz 3.2', 'tx 3.3', 'ty 3.3', 'tz 3.3', 'tx 3.4', 'ty 3.4', 'tz 3.4'
-                    , 'qx 2', 'qy 2', 'qz 2', 'qw 2', 'tx 2', 'ty 2', 'tz 2'
-                    , 'qx 3', 'qy 3', 'qz 3', 'qw 3', 'tx 3', 'ty 3', 'tz 3'],axis=1)
-                print(f"self.acquisitions['probe'].index.size {self.acquisitions['probe'].index.size}")
 
-                self.acquisitions["pointer"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 2'] != 'Enabled'].index)
-                self.acquisitions["pointer"] = self.acquisitions["pointer"].drop(['status 1', 'err 1'
-                    , 'tx 1.1', 'ty 1.1', 'tz 1.1', 'tx 1.2', 'ty 1.2', 'tz 1.2', 'tx 1.3', 'ty 1.3', 'tz 1.3', 'tx 1.4', 'ty 1.4', 'tz 1.4'
-                    , 'status 2', 'err 2'
-                    , 'tx 2.1', 'ty 2.1', 'tz 2.1', 'tx 2.2', 'ty 2.2', 'tz 2.2', 'tx 2.3', 'ty 2.3', 'tz 2.3', 'tx 2.4', 'ty 2.4', 'tz 2.4'
-                    , 'status 3', 'err 3'
-                    , 'tx 3.1', 'ty 3.1', 'tz 3.1', 'tx 3.2', 'ty 3.2', 'tz 3.2', 'tx 3.3', 'ty 3.3', 'tz 3.3', 'tx 3.4', 'ty 3.4', 'tz 3.4'
-                    , 'qx 1', 'qy 1', 'qz 1', 'qw 1', 'tx 1', 'ty 1', 'tz 1'
-                    , 'qx 3', 'qy 3', 'qz 3', 'qw 3', 'tx 3', 'ty 3', 'tz 3'],axis=1)
-                print(f"self.acquisitions['pointer'].index.size {self.acquisitions['pointer'].index.size}")
+            self.acquisitions["probe"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 1'] != 'Enabled'].index)
+            self.acquisitions["probe"] = self.acquisitions["probe"].drop(['status 1', 'status 2', 'status 3'
+                , 'qx 2', 'qy 2', 'qz 2', 'qw 2', 'tx 2', 'ty 2', 'tz 2'
+                , 'qx 3', 'qy 3', 'qz 3', 'qw 3', 'tx 3', 'ty 3', 'tz 3'],axis=1)
+            print(f"self.acquisitions['probe'].index.size {self.acquisitions['probe'].index.size}")
 
-                self.acquisitions["optical_seed"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 3'] != 'Enabled'].index)
-                self.acquisitions["optical_seed"] = self.acquisitions["optical_seed"].drop(['status 1', 'err 1'
-                    , 'tx 1.1', 'ty 1.1', 'tz 1.1', 'tx 1.2', 'ty 1.2', 'tz 1.2', 'tx 1.3', 'ty 1.3', 'tz 1.3', 'tx 1.4', 'ty 1.4', 'tz 1.4'
-                    , 'status 2', 'err 2'
-                    , 'tx 2.1', 'ty 2.1', 'tz 2.1', 'tx 2.2', 'ty 2.2', 'tz 2.2', 'tx 2.3', 'ty 2.3', 'tz 2.3', 'tx 2.4', 'ty 2.4', 'tz 2.4'
-                    , 'status 3', 'err 3'
-                    , 'tx 3.1', 'ty 3.1', 'tz 3.1', 'tx 3.2', 'ty 3.2', 'tz 3.2', 'tx 3.3', 'ty 3.3', 'tz 3.3', 'tx 3.4', 'ty 3.4', 'tz 3.4'
-                    , 'qx 2', 'qy 2', 'qz 2', 'qw 2', 'tx 2', 'ty 2', 'tz 2'
-                    , 'qx 1', 'qy 1', 'qz 1', 'qw 1', 'tx 1', 'ty 1', 'tz 1'],axis=1)
-                print(f"self.acquisitions['optical_seed'].index.size {self.acquisitions['optical_seed'].index.size}")
+            self.acquisitions["pointer"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 2'] != 'Enabled'].index)
+            self.acquisitions["pointer"] = self.acquisitions["pointer"].drop(['status 1', 'status 2', 'status 3'
+                , 'qx 1', 'qy 1', 'qz 1', 'qw 1', 'tx 1', 'ty 1', 'tz 1'
+                , 'qx 3', 'qy 3', 'qz 3', 'qw 3', 'tx 3', 'ty 3', 'tz 3'],axis=1)
+            print(f"self.acquisitions['pointer'].index.size {self.acquisitions['pointer'].index.size}")
+
+            self.acquisitions["optical_seed"] = self.acquisitions["optical"].drop(self.acquisitions["optical"][self.acquisitions["optical"]['status 3'] != 'Enabled'].index)
+            self.acquisitions["optical_seed"] = self.acquisitions["optical_seed"].drop(['status 1', 'status 2', 'status 3'
+                , 'qx 2', 'qy 2', 'qz 2', 'qw 2', 'tx 2', 'ty 2', 'tz 2'
+                , 'qx 1', 'qy 1', 'qz 1', 'qw 1', 'tx 1', 'ty 1', 'tz 1'],axis=1)
+            print(f"self.acquisitions['optical_seed'].index.size {self.acquisitions['optical_seed'].index.size}")
 
         self.general_mutex.release()

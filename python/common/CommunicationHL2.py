@@ -18,7 +18,8 @@ INITIAL_PORT = 22222
 COMMUNICATION_SIZE = 1 + 4 + 8 + 4 + 4 # u8 + u32 + f64 + u32 + u32
 
 SEND_TCP_CONNECTION_SLEEP_TIME = 0.05 # in s
-RECEIVE_TCP_CONNECTION_SLEEP_TIME = 0.001 # in s
+RECEIVE_TCP_CONNECTION_SLEEP_TIME = 0 # in s
+# RECEIVE_TCP_CONNECTION_SLEEP_TIME = 0.001 # in s
 
 PING_TIME = 8 # in s
 
@@ -399,7 +400,7 @@ class CommunicationQRCode(Communication):
                     # self.qr_code_rotations.append(rotation)
                     # transform = np.array(transformation[1:17]).reshape((4,4))
                     transform = transformation[1:17]
-                    self.qr_code_transforms.append(transform)
+                    self.qr_code_transforms.append(list(transform))
                     inc += size
 
         except struct.error as e:
@@ -574,7 +575,8 @@ class LoggerHandler(socketserver.BaseRequestHandler):
         self.send_thread.start()
 
         while True:
-            # time.sleep(RECEIVE_TCP_CONNECTION_SLEEP_TIME)
+            if RECEIVE_TCP_CONNECTION_SLEEP_TIME != 0:
+                time.sleep(RECEIVE_TCP_CONNECTION_SLEEP_TIME)
 
             communication = Communication.receive(self.request)
             if communication is not None:
