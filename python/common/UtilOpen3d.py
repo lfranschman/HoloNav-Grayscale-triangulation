@@ -1,8 +1,8 @@
 import numpy as np
 import open3d as o3d
 
-from UtilMaths import vec3_to_vec4, mul_mat44_vec4, rotation_euler_matrix44, identity_matrix44 #, print_matrix44
-from UtilImage import hls_to_rgb
+from python.common.UtilMaths import vec3_to_vec4, mul_mat44_vec4, rotation_euler_matrix44, identity_matrix44 #, print_matrix44
+from python.common.UtilImage import hls_to_rgb
 
 # RESET_BOUNDING_BOX = False
 RESET_BOUNDING_BOX = True

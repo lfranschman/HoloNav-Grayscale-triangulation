@@ -10,7 +10,7 @@ set C_INCLUDE_PATH=
 set CPLUS_INCLUDE_PATH= 
 set CMAKE_PREFIX_PATH= 
 
-set _PYTHON_DIR=C:/Program Files/Python38
+set _PYTHON_DIR=C:\Users\Lesle\AppData\Local\Programs\Python\Python38
 set PATH=%PATH%;%_PYTHON_DIR%/;%_PYTHON_DIR%/Scripts
 set PYTHONPATH=%PYTHONPATH%;%_PROJECT_PATH_WITH_SLASH%python/common
 set PYTHONPATH=%PYTHONPATH%;%_PROJECT_PATH_WITH_SLASH%thirdparties/scikit-surgerycalibration

@@ -6,8 +6,8 @@ import skimage as ski
 import skimage.io
 import scipy
 
-from File import load_pickle
-from UtilImage import draw_disk
+from python.common.File import load_pickle
+from python.common.UtilImage import draw_disk
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS_HOLOLENS
 from calibration_helpers import get_mat_c_to_w_series, get_mat_w_to_o, get_mat_m_to_o_series, get_lut_pixel_image, get_mat_divots_filename

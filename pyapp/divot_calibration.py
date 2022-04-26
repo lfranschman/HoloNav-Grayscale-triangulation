@@ -2,11 +2,11 @@ import datetime
 import numpy as np
 from scipy.signal import find_peaks
 
-import pivot # https://github.com/UCL/scikit-surgerycalibration
+from thirdparties.scikit_surgerycalibration import pivot # https://github.com/UCL/scikit-surgerycalibration
 
 # from File import save_pickle, load_pickle # debug
-from UtilMaths import mul_mat44_vec4_list, vec3_list_to_vec4_list, mul_mat44_vec4, translation_matrix44, rotation_euler_matrix44, identity_matrix44, vec3_to_vec4, point_based_registration, iterative_closest_point #, print_matrix44
-from Logging import log_print
+from python.common.UtilMaths import mul_mat44_vec4_list, vec3_list_to_vec4_list, mul_mat44_vec4, translation_matrix44, rotation_euler_matrix44, identity_matrix44, vec3_to_vec4, point_based_registration, iterative_closest_point #, print_matrix44
+from python.common.Logging import log_print
 
 SLIDING_WINDOW = '4s' # in s
 MIN_WINDOW_SIZE = 20 # in nb of measurement, 20 is minimum ~1s (optical tracking is 20Hz)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from File import load_pickle
+from python.common.File import load_pickle
 from QRCodeDetection import QRCodeDetection
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS_HOLOLENS
