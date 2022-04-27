@@ -316,7 +316,17 @@ def intersection_lines(pt1,pt2,pt3,pt4):
 
 # REF https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
 # pt/a/b/c shape (2,)
+# pt should be inside the triangle a,b,c
 def barycentric(pt, a, b, c):
+    if np.array_equal(a,b) and np.array_equal(b,c):
+        return (1,0,0)
+    if np.array_equal(a,b):
+        coeff = np.linalg.norm(pt - a)/np.linalg.norm(c - a)
+        return (1 - coeff, 0, coeff)
+    if np.array_equal(a,c) or np.array_equal(b,c):
+        coeff = np.linalg.norm(pt - a)/np.linalg.norm(b - a)
+        return (1 - coeff, coeff, 0)
+
     v0 = b - a
     v1 = c - a
     v2 = pt - a

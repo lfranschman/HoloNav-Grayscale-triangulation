@@ -67,7 +67,7 @@ def find_optical_spheres():
     for camera in ["vl_front_left_cam", "vl_front_right_cam"]:
         print(f"camera {camera}")
 
-        lut_projection = data.acquisitions[camera + "_lut_projection"] # shape (2, height*2 + 1, width*2 + 1)
+        lut_projection = data.acquisitions[camera + "_lut_projection"]
 
         nb_images_remaining = 10 # just want to do it for the nb_images_remaining first images
         # nb_images_remaining = 10000 # just want to do it for the nb_images_remaining first images
@@ -114,7 +114,7 @@ def find_optical_spheres():
             for i, sphere_pos in enumerate(sphere_positions):
                 pos_sphere1_c = np.matmul(mat_m_to_c, sphere_pos)
                 # t1 = time.time()
-                coord = get_lut_pixel_image(lut_projection, pos_sphere1_c[0], pos_sphere1_c[1], pos_sphere1_c[2]) # TODO improve this, too slow
+                coord = get_lut_pixel_image(lut_projection, pos_sphere1_c[0], pos_sphere1_c[1], pos_sphere1_c[2])
                 # print(f"get lut {time.time() - t1} s")
                 if coord is not None and not math.isnan(coord[0]) and not math.isnan(coord[1]):
                     print(f"center of the sphere {i}: {coord}")
