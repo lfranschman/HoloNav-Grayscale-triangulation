@@ -1,6 +1,11 @@
 import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
+from config import config
+import skimage as ski
+import skimage.io
+from pyapp.DataAcquisition import DataAcquisition
+
 
 def drawlinesAndPoints(img1,img2,lines,pts1,pts2):
     ''' img1 - image on which we draw the epilines for the points in img2
@@ -45,11 +50,31 @@ def find_fund_matrix(image1, image2):
     return fundMatrix, mask, pts1, pts2
 
 if  __name__ == '__main__':
+    # data = DataAcquisition()
+    # data.load_data(config.get_filename("optical_sphere"))
+    # frame = np.copy(data.acquisitions["vl_front_right_cam" + '_frames'][78])
+    # ski.io.imsave(f"test_images/{'vl_front_right_cam'}_{78:04.0f}.png", frame)
+    # left:
+    # frame_id 97
+    # center of the sphere 0: (319.71857546531635, 260.6429657947044)
+    # center of the sphere 1: (277.2733399114904, 229.57999440448162)
+    # center of the sphere 2: (226.79491166784646, 258.66479608478386)
+    # center of the sphere 3: (276.01048072657915, 306.5909886519823)
+    #
+    # right:
+    # frame_id 97
+    # center of the sphere 0: (320.74284086414787, 101.27987236026208)
+    # center of the sphere 1: (365.8998185654118, 132.0215938672441)
+    # center of the sphere 2: (419.43092116436685, 97.89421957313039)
+    # center of the sphere 3: (365.8397009965465, 48.99749282748726)
     img1 = cv.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_left_cam_0088.png',0)  #queryimage # left image
-    img2 = cv.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0088.png',0) #trainimage # right image
+    img2 = cv.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0078.png',0) #trainimage # right image
 
     fundMatrix, mask, pointsleft, pointsright = find_fund_matrix(img1, img2)
-
+    # pointsLeft = np.array(np.ndarray(319.71857546531635, 260.6429657947044), np.ndarray(277.2733399114904, 229.57999440448162),
+    #                        np.ndarray(319.71857546531635, 260.6429657947044), np.ndarray(319.71857546531635, 260.6429657947044), dtype=float)
+    # print(type(pointsleft[0]))
+    
     # Inlier points only
     pointsleft = pointsleft[mask.ravel()==1]
     pointsright = pointsright[mask.ravel()==1]
