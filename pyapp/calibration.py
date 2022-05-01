@@ -5,6 +5,12 @@ import numpy as np
 
 def calibrate_camera(images):
 
+    # Pixel coordinates
+    points2D = []
+
+    # coordinates of the checkerboard in checkerboard world space.
+    points3D = []
+
     # checkerboard pattern detector criteria.
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -19,13 +25,6 @@ def calibrate_camera(images):
     # frame size
     width = images[0].shape[1]
     height = images[0].shape[0]
-
-    # Pixel coordinates
-    points2D = []
-
-    # coordinates of the checkerboard in checkerboard world space.
-    points3D = []
-
     for frame in images:
         grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         success, corners = cv2.findChessboardCorners(grayFrame, (rows, cols), None)
@@ -34,7 +33,8 @@ def calibrate_camera(images):
             conv_size = (11, 11)
             corners = cv2.cornerSubPix(grayFrame, corners, conv_size, (-1, -1), criteria)
             cv2.drawChessboardCorners(frame, (rows, cols), corners, success)
-            #cv2.imshow('img', frame)
+            #cv2.imshow('image', frame)
+            cv2.waitKey(500)
             points2D.append(corners)
             points3D.append(obj)
 
@@ -42,9 +42,12 @@ def calibrate_camera(images):
 
     return cameraMatrix, distCoefs
 
-if __name__ == '__main__':
+    def stereo_calibrate(cameraMatrix1, distCoefs1, cameraMatrix2, distCoefs2, folderImages):
+        return
 
-    # imageFolder = ''
+# if __name__ == '__main__':
+#
+#      imageFolder = ''
     # imagesNames = sorted(glob.glob(images_folder))
     # images = []x
     # for name in images_names:
