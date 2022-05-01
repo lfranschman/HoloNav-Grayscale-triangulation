@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import glob
 from matplotlib import pyplot as plt
 from config import config
 import skimage as ski
@@ -58,31 +59,36 @@ if  __name__ == '__main__':
     # data.load_data(config.get_filename("optical_sphere"))
     # frame = np.copy(data.acquisitions["vl_front_right_cam" + '_frames'][78])
     # ski.io.imsave(f"test_images/{'vl_front_right_cam'}_{78:04.0f}.png", frame)
+
     # left:
-    # frame_id 97
-    # center of the sphere 0: (319.71857546531635, 260.6429657947044)
-    # center of the sphere 1: (277.2733399114904, 229.57999440448162)
-    # center of the sphere 2: (226.79491166784646, 258.66479608478386)
-    # center of the sphere 3: (276.01048072657915, 306.5909886519823)
-    #
+    # frame_id 92
+    # center of the sphere 0: (313.3509022842888, 262.47544764121005)
+    # center of the sphere 1: (272.8489279548646, 233.6973695674395)
+    # center of the sphere 2: (227.06630654179853, 261.80506340088226)
+    # center of the sphere 3: (272.94404080837654, 306.435626136948)
+
     # right:
-    # frame_id 97
-    # center of the sphere 0: (320.74284086414787, 101.27987236026208)
-    # center of the sphere 1: (365.8998185654118, 132.0215938672441)
-    # center of the sphere 2: (419.43092116436685, 97.89421957313039)
-    # center of the sphere 3: (365.8397009965465, 48.99749282748726)
-    img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_left_cam_0088.png', 0)  #queryimage # left image
-    img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0078.png', 0) #trainimage # right image
+    # frame_id 82
+    # center of the sphere 0: (308.957572937851, 116.63542215668062)
+    # center of the sphere 1: (349.07924505516473, 147.23053501449542)
+    # center of the sphere 2: (395.24553983842543, 120.35931920462032)
+    # center of the sphere 3: (349.9330255618248, 73.21466985931173)
+
+    img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\generated\vl_front_left_cam_0092.png', 0)
+    img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\generated\vl_front_right_cam_0082.png', 0)
     img1 = rotate_image(img1, -90)
     img2 = rotate_image(img2, 90)
     fundMatrix, mask, pointsleft, pointsright = find_fund_matrix(img1, img2)
-    # pointsLeft = np.array(np.ndarray(319.71857546531635, 260.6429657947044), np.ndarray(277.2733399114904, 229.57999440448162),
-    #                        np.ndarray(319.71857546531635, 260.6429657947044), np.ndarray(319.71857546531635, 260.6429657947044), dtype=float)
-    # print(type(pointsleft[0]))
 
+    # pointsleft = np.array([[313.3509022842888, 262.47544764121005], [272.8489279548646, 233.6973695674395],
+    #                        [227.06630654179853, 261.80506340088226], [272.94404080837654, 306.435626136948]])
+    #
+    # pointsright = np.array([[308.957572937851, 116.63542215668062], [349.07924505516473, 147.23053501449542],
+    #                       [395.24553983842543, 120.35931920462032], [349.9330255618248, 73.21466985931173]])
+    # print(pointsleft)
     # Inlier points only
-    pointsleft = pointsleft[mask.ravel()==1]
-    pointsright = pointsright[mask.ravel()==1]
+    # pointsleft = pointsleft[mask.ravel()==1]
+    # pointsright = pointsright[mask.ravel()==1]
 
     # draw points and epilines in the left image
     lines1 = cv2.computeCorrespondEpilines(pointsright.reshape(-1, 1, 2), 2, fundMatrix)
@@ -94,8 +100,9 @@ if  __name__ == '__main__':
     lines2 = lines2.reshape(-1, 3)
     resImageRight, helper2 = drawlinesAndPoints(img2, img1, lines2, pointsright, pointsleft)
 
-
-
+    # stereo = cv2.StereoBM_create(numDisparities=16, blockSize=15)
+    # disp = stereo.compute(img1, img2)
+    #plt.imshow(disp, 'gray')
     plt.subplot(121)
     plt.imshow(resImageLeft)
     plt.subplot(122)

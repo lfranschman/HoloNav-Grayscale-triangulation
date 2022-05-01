@@ -72,7 +72,7 @@ def find_optical_spheres():
         nb_images_remaining = 10 # just want to do it for the nb_images_remaining first images
         # nb_images_remaining = 10000 # just want to do it for the nb_images_remaining first images
         # for frame_id in range(len(data.acquisitions[camera + "_frames"])):
-        for frame_id in range(87,892):
+        for frame_id in range(80,892):
             print(f"frame_id {frame_id}")
             timestamp = data.acquisitions[camera].index[frame_id]
             serie = data.acquisitions[camera].loc[timestamp]
