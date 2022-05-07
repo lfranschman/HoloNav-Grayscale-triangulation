@@ -101,12 +101,12 @@ def calibrate_camera(images):
                 imgpoints_right.append(corners2)
 
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-        ret, CM1, dist1, CM2, dist2, R, T, E, F = cv2.stereoCalibrate(objpoints, imgpoints_left, imgpoints_right, cameraMatrix1,
+        success, CM1, dist1, CM2, dist2, R, T, E, F = cv2.stereoCalibrate(objpoints, imgpoints_left, imgpoints_right, cameraMatrix1,
                                                                      distCoefs1,
                                                                      cameraMatrix2, distCoefs2, (width, height), criteria=criteria,
                                                                      flags=stereocalibration_flags)
 
-        print(ret)
+
         return R, T
 
 # if __name__ == '__main__':
