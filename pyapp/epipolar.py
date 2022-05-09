@@ -74,15 +74,22 @@ if  __name__ == '__main__':
     data = DataAcquisition()
     data.load_data(config.get_filename("optical_sphere"))
 
-    #frame = np.copy(data.acquisitions['vl_front_left_cam_frames'][92])
-    frame1 = np.copy(data.acquisitions['lt_depth_cam_ab_frames'][61])
-    #frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
-    #ski.io.imsave(f"test_images/{'infrared_lt'}_{61:04.0f}.png", frame1.astype(np.uint8))
-    frame2 = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][84])
+    frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][0])
+    frame2 = np.copy(data.acquisitions['vl_front_right_cam_frames'][0])
 
-    frame2 = (frame2/256).astype('uint8')
-    ret, thresh1 = cv2.threshold(frame1, 10000, 24000, cv2.THRESH_BINARY)
-    ret2, thresh2 = cv2.threshold(frame2, 4.5, 256, cv2.THRESH_BINARY_INV)
+    frame3 = np.copy(data.acquisitions['lt_depth_cam_ab_frames'][0])
+    frame4 = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][0])
+    # #frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
+    # ski.io.imsave(f"test_images/{'vl_front_left_cam'}_{0:04.0f}.png", frame1)
+    # ski.io.imsave(f"test_images/{'vl_front_right_cam'}_{0:04.0f}.png", frame2)
+    # ski.io.imsave(f"test_images/{'lt_depth_cam_ab'}_{0:04.0f}.png", frame3)
+    # ski.io.imsave(f"test_images/{'ahat_depth_cam_ab'}_{0:04.0f}.png", frame4.astype(np.uint8))
+
+
+
+    frame4 = (frame4/256).astype('uint8')
+    ret, thresh1 = cv2.threshold(frame3, 10000, 24000, cv2.THRESH_BINARY)
+    ret2, thresh2 = cv2.threshold(frame4, 4.5, 256, cv2.THRESH_BINARY_INV)
 
     params = cv2.SimpleBlobDetector_Params()
 
@@ -110,28 +117,28 @@ if  __name__ == '__main__':
       draw_disk(frameCopy, coord[0], coord[1], 0, size=1)
 
     infraredPoints = np.int32(infraredPoints)
-
-    img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\generated\vl_front_left_cam_0092.png', 0)
-    img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\generated\vl_front_right_cam_0082.png', 0)
-
-    infraredImage = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\infrared_0084.png', 0)
-    # infraredImage = cv2.resize(infraredImage, (640, 480), interpolation = cv2.INTER_AREA)
-
+    #
+    img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_left_cam_0000.png.png', 0)
+    img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0000.png', 0)
+    #
+    infraredImage = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\ahat_depth_cam_ab_0000.png', 0)
+    # # infraredImage = cv2.resize(infraredImage, (640, 480), interpolation = cv2.INTER_AREA)
+    #
     fundMatrix, mask, pointsLeft, pointsRight = find_fund_matrix(img1, infraredImage)
     fundMatrix2, mask2, pointsLeft2, pointsRight2 = find_fund_matrix(infraredImage, img2)
-    img1 = cv2.resize(img1, (550, 550), interpolation = cv2.INTER_AREA)
-    #img2 = cv2.resize(img2, (550, 550), interpolation = cv2.INTER_AREA)
-
+    # img1 = cv2.resize(img1, (512, 512), interpolation = cv2.INTER_AREA)
+    # #img2 = cv2.resize(img2, (550, 550), interpolation = cv2.INTER_AREA)
+    #
     pointsRight = infraredPoints
 
 
     # # pointsLeft = infraredPoints
     pointsLeft2 = infraredPoints
-
-    # Inlier points only
+    #
+    # # Inlier points only
     pointsLeft = pointsLeft[mask.ravel()==1]
     pointsRight2 = pointsRight2[mask2.ravel()==1]
-
+    #
     # draw points and epilines in the left image
     lines1 = cv2.computeCorrespondEpilines(pointsRight.reshape(-1, 1, 2), 2, fundMatrix)
     lines1 = lines1.reshape(-1, 3)
@@ -154,13 +161,25 @@ if  __name__ == '__main__':
 
     resImageLeft = cv2.rotate(resImageLeft, cv2.cv2.ROTATE_90_CLOCKWISE)
     resImageRight2 = cv2.rotate(resImageRight2, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
-
+    # print(resImageLeft.shape[0])
+    # print(resImageLeft.shape[1])
+    #
+    # print(resImageRight2.shape[0])
+    # print(resImageRight2.shape[1])
+    #
+    # print(infraredImage.shape[0])
+    # print(infraredImage.shape[1])
+    #
     plt.subplot(121)
     plt.imshow(resImageLeft)
+
     plt.subplot(122)
     plt.imshow(resImageRight2)
-    # plt.savefig("resized_result.png")
-    # ski.io.imsave(f"results/{'common_points_epilines_right'}_{4:04.0f}.png", resImageRight)
+    # # plt.savefig("resized_result.png")
+    #frame1 = cv2.cvtColor(frame1.astype(np.uint8), cv2.COLOR_RGB2RGBA)
+    # ski.io.imsave(f"results/{'frame'}_{1:04.0f}.png", frame1)
+    #
+    # plt.imshow(frame1)
     plt.show()
 
 
