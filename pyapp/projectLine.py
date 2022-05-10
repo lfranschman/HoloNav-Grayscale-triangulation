@@ -4,8 +4,7 @@ import cv2
 
 from pyapp.DataAcquisition import DataAcquisition
 from config import config
-from pyapp.calibration_helpers import get_mat_c_to_w_series, get_lut_projection_pixel, get_lut_pixel_image, \
-    get_lut_projection_int_pixel
+from pyapp.calibration_helpers import get_mat_c_to_w_series, get_lut_projection_pixel, get_lut_pixel_image,  get_lut_projection_int_pixel
 from python.common.UtilImage import draw_disk
 
 
@@ -80,14 +79,16 @@ def projectLineToGreyscale(infraredPoints, imgIR, data):
         #cameraCoord3D = get_lut_projection_pixel(lutInfrared, sphere[0], sphere[1])
         #infraredPoints = np.int32(infraredPoints)
 
-        IRcameraCoord3D = get_lut_projection_pixel(lutInfrared, int(sphere[0]), int(sphere[1]))
+        IRcameraCoord3D = get_lut_projection_pixel(lutInfrared, sphere[0], sphere[1])
         # print(sphere)
         print(IRcameraCoord3D)
 
         #worldCoord = np.matmul(extrinsic1, IRcameraCoord3D)
         # leftGreyscaleCameraCoord3D = np.mul(mat_w_to_c2, worldCoord)
         # rightGreyscaleCameraCoord3D = np.mul(mat_w_to_c3, worldCoord)
-        # imageCoord2D = get_lut_pixel_image(lutInfrared, IRcameraCoord3D[0], IRcameraCoord3D[1], IRcameraCoord3D[2])
+        imageCoord2D = get_lut_pixel_image(lutInfrared, IRcameraCoord3D[0], IRcameraCoord3D[1], IRcameraCoord3D[2])
+        print(imageCoord2D)
+
         # leftImageCoord2D = get_lut_pixel_image(lutGreyScaleLeft, leftGreyscaleCameraCoord3D[0], leftGreyscaleCameraCoord3D[1], leftGreyscaleCameraCoord3D[2])
         # rightImageCoord2D = get_lut_pixel_image(rightGreyscaleCameraCoord3D, rightGreyscaleCameraCoord3D[0], rightGreyscaleCameraCoord3D[1], rightGreyscaleCameraCoord3D[2])
 
@@ -111,5 +112,5 @@ if  __name__ == '__main__':
     #irpoints = [[238, 221], [253, 208], [216, 200], [240, 188]]
     resImage = projectLineToGreyscale(irpoints, frame4.astype(np.uint8), data)
 
-    plt.imshow(resImage)
-    plt.show()
+    #plt.imshow(resImage)
+    #plt.show()
