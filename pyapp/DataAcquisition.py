@@ -4,10 +4,10 @@ import threading
 import numpy as np
 import pandas as pd
 
-from python.common.Logging import log_print
-from python.common.File import save_pickle, load_pickle
+from  python.common.Logging import log_print
+from  python.common.File import save_pickle, load_pickle
 
-from python.common.CommunicationHL2 import Communication, CommunicationLUTCameraProjection
+from  python.common.CommunicationHL2 import Communication, CommunicationLUTCameraProjection
 
 # UTC_SHIFT = 2 # in hours
 # UTC_SHIFT = 1 # in hours
@@ -28,8 +28,17 @@ MAX_LT_DEPTH = 1200 # only for visualization purpose
 #MAX_LT_AB = 3000 # only for visualization purpose
 MAX_LT_AB = 11000 # only for visualization purpose
 
+LUT_PROJECTION_X = 0
+LUT_PROJECTION_Y = 1
+LUT_PROJECTION_U = 2
+LUT_PROJECTION_V = 3
+LUT_PROJECTION_MIN_X = 4
+LUT_PROJECTION_MAX_X = 5
+LUT_PROJECTION_MIN_Y = 6
+LUT_PROJECTION_MAX_Y = 7
+
 class DataAcquisition:
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self):
         self.acquisitions = {}
@@ -99,24 +108,24 @@ class DataAcquisition:
         self.acquisitions["vl_front_left_cam"] = pd.DataFrame([], columns = columns)
         self.acquisitions["vl_front_left_cam"] = self.acquisitions["vl_front_left_cam"].set_index('time')
         self.acquisitions["vl_front_left_cam_frames"] = []
-        self.acquisitions["vl_front_left_cam_lut_projection"] = [None, None]
+        self.acquisitions["vl_front_left_cam_lut_projection"] = [None, None, None, None, 0, 0, 0, 0]
 
         self.acquisitions["vl_front_right_cam"] = pd.DataFrame([], columns = columns)
         self.acquisitions["vl_front_right_cam"] = self.acquisitions["vl_front_right_cam"].set_index('time')
         self.acquisitions["vl_front_right_cam_frames"] = []
-        self.acquisitions["vl_front_right_cam_lut_projection"] = [None, None]
+        self.acquisitions["vl_front_right_cam_lut_projection"] = [None, None, None, None, 0, 0, 0, 0]
 
         self.acquisitions["ahat_depth_cam"] = pd.DataFrame([], columns = columns)
         self.acquisitions["ahat_depth_cam"] = self.acquisitions["ahat_depth_cam"].set_index('time')
         self.acquisitions["ahat_depth_cam_frames"] = []
         self.acquisitions["ahat_depth_cam_ab_frames"] = []
-        self.acquisitions["ahat_depth_cam_lut_projection"] = [None, None]
+        self.acquisitions["ahat_depth_cam_lut_projection"] = [None, None, None, None, 0, 0, 0, 0]
 
         self.acquisitions["lt_depth_cam"] = pd.DataFrame([], columns = columns)
         self.acquisitions["lt_depth_cam"] = self.acquisitions["lt_depth_cam"].set_index('time')
         self.acquisitions["lt_depth_cam_frames"] = []
         self.acquisitions["lt_depth_cam_ab_frames"] = []
-        self.acquisitions["lt_depth_cam_lut_projection"] = [None, None]
+        self.acquisitions["lt_depth_cam_lut_projection"] = [None, None, None, None, 0, 0, 0, 0]
 
         self.recording = False
 
@@ -131,10 +140,42 @@ class DataAcquisition:
 
             if communication.action == Communication.ACTION_SEND_LUT_CAMERA_PROJECTION:
                 log_print("Communication.ACTION_SEND_LUT_CAMERA_PROJECTION")
-                self.acquisitions["vl_front_left_cam_lut_projection"] = [communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT], communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]]
-                self.acquisitions["vl_front_right_cam_lut_projection"] = [communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT], communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]]
-                self.acquisitions["ahat_depth_cam_lut_projection"] = [communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH], communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]]
-                self.acquisitions["lt_depth_cam_lut_projection"] = [communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH], communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]]
+                self.acquisitions["vl_front_left_cam_lut_projection"] = [
+                    communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.lut_camera_projection_u[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.lut_camera_projection_v[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.camera_space_min_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.camera_space_max_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.camera_space_min_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]
+                    , communication.camera_space_max_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_LEFT]]
+                self.acquisitions["vl_front_right_cam_lut_projection"] = [
+                    communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.lut_camera_projection_u[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.lut_camera_projection_v[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.camera_space_min_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.camera_space_max_x[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.camera_space_min_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]
+                    , communication.camera_space_max_y[CommunicationLUTCameraProjection.RM_SENSOR_VL_FRONT_RIGHT]]
+                self.acquisitions["ahat_depth_cam_lut_projection"] = [
+                    communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.lut_camera_projection_u[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.lut_camera_projection_v[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.camera_space_min_x[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.camera_space_max_x[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.camera_space_min_y[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]
+                    , communication.camera_space_max_y[CommunicationLUTCameraProjection.RM_SENSOR_AHAT_DEPTH]]
+                self.acquisitions["lt_depth_cam_lut_projection"] = [
+                    communication.lut_camera_projection_x[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.lut_camera_projection_y[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.lut_camera_projection_u[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.lut_camera_projection_v[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.camera_space_min_x[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.camera_space_max_x[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.camera_space_min_y[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]
+                    , communication.camera_space_max_y[CommunicationLUTCameraProjection.RM_SENSOR_LT_DEPTH]]
 
             else:
                 if communication.action == Communication.ACTION_SEND_IMAGE:
@@ -206,9 +247,9 @@ class DataAcquisition:
 
         self.acquisitions = load_pickle(filename)
 
-        if check_version and ("version" not in self.acquisitions or self.acquisitions["version"] != DataAcquisition.VERSION):
-            print(f"version {self.acquisitions['version'] if 'version' in self.acquisitions else '0'} of the file is old, update the file first")
-            assert False
+        # if check_version and ("version" not in self.acquisitions or self.acquisitions["version"] != DataAcquisition.VERSION):
+        #     print(f"version {self.acquisitions['version'] if 'version' in self.acquisitions else '0'} of the file is old, update the file first")
+        #     assert False
 
         # debug, remove some acquisition
         # self.acquisitions['magnetic_seed'] = self.acquisitions['magnetic_seed'][0:0]
@@ -233,15 +274,15 @@ class DataAcquisition:
         print(f"len(self.acquisitions['vl_front_left_cam_frames']) {len(self.acquisitions['vl_front_left_cam_frames'])}")
         if len(self.acquisitions['vl_front_left_cam_frames']) != 0:
             print(f"self.acquisitions['vl_front_left_cam_frames'][0].shape {self.acquisitions['vl_front_left_cam_frames'][0].shape}")
-        if self.acquisitions['vl_front_left_cam_lut_projection'][0] is not None:
-            print(f"self.acquisitions['vl_front_left_cam_lut_projection'][0].shape {self.acquisitions['vl_front_left_cam_lut_projection'][0].shape}")
+        if self.acquisitions['vl_front_left_cam_lut_projection'][LUT_PROJECTION_X] is not None:
+            print(f"self.acquisitions['vl_front_left_cam_lut_projection'][LUT_PROJECTION_X].shape {self.acquisitions['vl_front_left_cam_lut_projection'][LUT_PROJECTION_X].shape}")
 
         print(f"self.acquisitions['vl_front_right_cam'].index.size {self.acquisitions['vl_front_right_cam'].index.size}")
         print(f"len(self.acquisitions['vl_front_right_cam_frames']) {len(self.acquisitions['vl_front_right_cam_frames'])}")
         if len(self.acquisitions['vl_front_right_cam_frames']) != 0:
             print(f"self.acquisitions['vl_front_right_cam_frames'][0].shape {self.acquisitions['vl_front_right_cam_frames'][0].shape}")
-        if self.acquisitions['vl_front_right_cam_lut_projection'][0] is not None:
-            print(f"self.acquisitions['vl_front_right_cam_lut_projection'][0].shape {self.acquisitions['vl_front_right_cam_lut_projection'][0].shape}")
+        if self.acquisitions['vl_front_right_cam_lut_projection'][LUT_PROJECTION_X] is not None:
+            print(f"self.acquisitions['vl_front_right_cam_lut_projection'][LUT_PROJECTION_X].shape {self.acquisitions['vl_front_right_cam_lut_projection'][LUT_PROJECTION_X].shape}")
 
         print(f"self.acquisitions['ahat_depth_cam'].index.size {self.acquisitions['ahat_depth_cam'].index.size}")
         print(f"len(self.acquisitions['ahat_depth_cam_frames']) {len(self.acquisitions['ahat_depth_cam_frames'])}")
@@ -250,8 +291,8 @@ class DataAcquisition:
         print(f"len(self.acquisitions['ahat_depth_cam_ab_frames']) {len(self.acquisitions['ahat_depth_cam_ab_frames'])}")
         if len(self.acquisitions['ahat_depth_cam_ab_frames']) != 0:
             print(f"self.acquisitions['ahat_depth_cam_ab_frames'][0].shape {self.acquisitions['ahat_depth_cam_ab_frames'][0].shape}")
-        if self.acquisitions['ahat_depth_cam_lut_projection'][0] is not None:
-            print(f"self.acquisitions['ahat_depth_cam_lut_projection'][0].shape {self.acquisitions['ahat_depth_cam_lut_projection'][0].shape}")
+        if self.acquisitions['ahat_depth_cam_lut_projection'][LUT_PROJECTION_X] is not None:
+            print(f"self.acquisitions['ahat_depth_cam_lut_projection'][LUT_PROJECTION_X].shape {self.acquisitions['ahat_depth_cam_lut_projection'][LUT_PROJECTION_X].shape}")
 
         print(f"self.acquisitions['lt_depth_cam'].index.size {self.acquisitions['lt_depth_cam'].index.size}")
         print(f"len(self.acquisitions['lt_depth_cam_frames']) {len(self.acquisitions['lt_depth_cam_frames'])}")
@@ -260,8 +301,8 @@ class DataAcquisition:
         print(f"len(self.acquisitions['lt_depth_cam_ab_frames']) {len(self.acquisitions['lt_depth_cam_ab_frames'])}")
         if len(self.acquisitions['lt_depth_cam_ab_frames']) != 0:
             print(f"self.acquisitions['lt_depth_cam_ab_frames'][0].shape {self.acquisitions['lt_depth_cam_ab_frames'][0].shape}")
-        if self.acquisitions['lt_depth_cam_lut_projection'][0] is not None:
-            print(f"self.acquisitions['lt_depth_cam_lut_projection'][0].shape {self.acquisitions['lt_depth_cam_lut_projection'][0].shape}")
+        if self.acquisitions['lt_depth_cam_lut_projection'][LUT_PROJECTION_X] is not None:
+            print(f"self.acquisitions['lt_depth_cam_lut_projection'][LUT_PROJECTION_X].shape {self.acquisitions['lt_depth_cam_lut_projection'][LUT_PROJECTION_X].shape}")
 
         if prepare_data:
             for acquisition in ACQUISITIONS + ['magnetic_seed']:

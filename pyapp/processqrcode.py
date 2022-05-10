@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from python.common.File import load_pickle
+from  python.common.File import load_pickle
 from QRCodeDetection import QRCodeDetection
 from config import config
 from DataAcquisition import DataAcquisition, ACQUISITIONS_HOLOLENS
@@ -66,14 +66,14 @@ def create_qr_code_positions():
             serie_left = data.acquisitions["vl_front_left_cam"].loc[timestamp_left]
             frame_left = data.acquisitions['vl_front_left_cam_frames'][i] # shape (h,w)
             extrinsic_left = get_mat_c_to_w_series(serie_left)
-            lut_projection_left = data.acquisitions["vl_front_left_cam_lut_projection"] # shape (2, height*2 + 1, width*2 + 1)
+            lut_projection_left = data.acquisitions["vl_front_left_cam_lut_projection"]
 
             index_right = data.acquisitions["vl_front_right_cam"].index.get_loc(timestamp_left, method='nearest')
             timestamp_right = data.acquisitions["vl_front_right_cam"].index[index_right]
             serie_right = data.acquisitions["vl_front_right_cam"].loc[timestamp_right]
             frame_right = data.acquisitions['vl_front_right_cam_frames'][index_right] # shape (h,w)
             extrinsic_right = get_mat_c_to_w_series(serie_right)
-            lut_projection_right = data.acquisitions["vl_front_right_cam_lut_projection"] # shape (2, height*2 + 1, width*2 + 1)
+            lut_projection_right = data.acquisitions["vl_front_right_cam_lut_projection"]
 
             mat_q_to_w_list = np.zeros((QRCodeDetection.NB_QR_CODE,4,4), dtype=np.float64)
             # if time difference is less than 100ms

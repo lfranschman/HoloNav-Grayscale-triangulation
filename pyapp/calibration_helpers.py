@@ -1,16 +1,13 @@
-import time
 import math
 import copy
 import numpy as np
 
-import scipy
-import scipy.optimize # fsolve, root, least_squares
-
 from python.common.Logging import log_print
-from python.common.UtilMaths import get_mat_camera_to_world, get_mat_quaternion, get_inverse_mat_quaternion, mul_mat44_vec4, normalize_vec4, mul_mat44_vec4_list, vec3_list_to_vec4_list, point_in_triangle, barycentric, vec3_to_vec4, polar_to_cartesian
-from python.common.File import load_pickle, save_pickle
+from  python.common.UtilMaths import get_mat_camera_to_world, get_mat_quaternion, get_inverse_mat_quaternion, mul_mat44_vec4_list, vec3_list_to_vec4_list, barycentric, vec3_to_vec4
+from  python.common.File import load_pickle, save_pickle
 
 from divot_calibration import pivot_calibration
+from DataAcquisition import LUT_PROJECTION_X, LUT_PROJECTION_Y, LUT_PROJECTION_U, LUT_PROJECTION_V, LUT_PROJECTION_MIN_X, LUT_PROJECTION_MAX_X, LUT_PROJECTION_MIN_Y, LUT_PROJECTION_MAX_Y
 
 def get_mat_c_to_w_series(series):
     translation_rig_to_world = [series['cam_to_w_translation_x'], series['cam_to_w_translation_y'], series['cam_to_w_translation_z']]
@@ -38,19 +35,101 @@ def get_mat_q_to_w(df_qr_code, timestamp, qr_code_id = 0):
     # translation_vec = list(df_qr_code.loc[timestamp][:3])
     return get_mat_q_to_w_series(df_qr_code.loc[timestamp], qr_code_id)
 
-# lut shape (2, height*2 + 1, width*2 + 1)
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
 # output shape (3,)
 # we take the value in the middle of the pixel (x + 0.5, y + 0.5)
-def get_lut_projection_pixel(lut, x, y):
-    # width = (lut[0].shape[1] - 1)//2
-    # index = (y*2 + 1)*lut[0].shape[1] + (x*2 + 1) # we take the value in the middle of the pixel (x + 0.5, y + 0.5)
-    # return [lut[0][index], lut[1][index], 1]
-    return [lut[0][int(y*2 + 1), int(x*2 + 1)], lut[1][int(y*2 + 1), int(x*2 + 1)], 1]
+# works only with x/y = 0, 1, 2, ... height/width
+def get_lut_projection_int_pixel(lut, x, y):
+    return [lut[LUT_PROJECTION_X][int(y*2 + 1), int(x*2 + 1)], lut[LUT_PROJECTION_Y][int(y*2 + 1), int(x*2 + 1)], 1]
 
-# brute force to find the position in the 2D camera image coordinate space (TODO improve this, too slow) -> use intrinsic + distortion coefficients instead
-# lut shape (2, height*2 + 1, width*2 + 1)
-# (x,y,z) in camera space
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
+# output shape (3,)
+# works with any float between 0 and height/width
+def get_lut_projection_pixel(lut, x, y):
+    width = (lut[LUT_PROJECTION_X].shape[1] - 1)/2
+    height = (lut[LUT_PROJECTION_X].shape[0] - 1)/2
+    assert 0 <= x <= width
+    assert 0 <= y <= height
+
+    # get corners coordinate in the look-up-table around the point (x,y)
+    lut_x = math.floor(x*2)
+    lut_x2 = math.ceil(x*2)
+    lut_y = math.floor(y*2)
+    lut_y2 = math.ceil(y*2)
+
+    # remove the farthest corner
+    corners_camera_space = np.array([[lut[LUT_PROJECTION_X][int(lut_y), int(lut_x)], lut[LUT_PROJECTION_Y][int(lut_y), int(lut_x)]]
+        , [lut[LUT_PROJECTION_X][int(lut_y), int(lut_x2)], lut[LUT_PROJECTION_Y][int(lut_y), int(lut_x2)]]
+        , [lut[LUT_PROJECTION_X][int(lut_y2), int(lut_x)], lut[LUT_PROJECTION_Y][int(lut_y2), int(lut_x)]]
+        , [lut[LUT_PROJECTION_X][int(lut_y2), int(lut_x2)], lut[LUT_PROJECTION_Y][int(lut_y2), int(lut_x2)]]]) # shape (4,2)
+    corners_pixel_space = np.array([[lut_x/2, lut_y/2]
+        , [lut_x2/2, lut_y/2]
+        , [lut_x/2, lut_y2/2]
+        , [lut_x2/2, lut_y2/2]]) # shape (4,2)
+    squared_distances = np.sum((corners_pixel_space - [x,y])**2, axis=1) # shape (4,)
+    index = np.argmax(squared_distances)
+    corners_camera_space = np.delete(corners_camera_space, index, axis=0) # shape (3,2)
+    corners_pixel_space = np.delete(corners_pixel_space, index, axis=0) # shape (3,2)
+
+    b = barycentric(np.array((x,y)), corners_pixel_space[0], corners_pixel_space[1], corners_pixel_space[2])
+    if b is None:
+        return None
+
+    camera_x = b[0]*corners_camera_space[0][0] + b[1]*corners_camera_space[1][0] + b[2]*corners_camera_space[2][0]
+    camera_y = b[0]*corners_camera_space[0][1] + b[1]*corners_camera_space[1][1] + b[2]*corners_camera_space[2][1]
+    return [camera_x, camera_y, 1]
+
+# find the position in the 2D image coordinate space
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
+# lut[2:4] shape (2, height*3, width*3)
+# output shape (2,)
 def get_lut_pixel_image(lut, x, y, z):
+    if z <= 0:
+        return None
+
+    # find projection line when z = 1, line parametric equation -> origin + t.([x,y,z] - origin)
+    t = 1/z
+    x = t*x
+    y = t*y
+
+    if x < lut[LUT_PROJECTION_MIN_X] or x > lut[LUT_PROJECTION_MAX_X] \
+        or y < lut[LUT_PROJECTION_MIN_Y] or y > lut[LUT_PROJECTION_MAX_Y]:
+        return None
+
+    # get corners coordinate in the look-up-table around the point (x,y,1)
+    delta_x = (lut[LUT_PROJECTION_MAX_X] - lut[LUT_PROJECTION_MIN_X])/(lut[LUT_PROJECTION_U].shape[1] - 1)
+    delta_y = (lut[LUT_PROJECTION_MAX_Y] - lut[LUT_PROJECTION_MIN_Y])/(lut[LUT_PROJECTION_U].shape[0] - 1)
+    lut_x = math.floor((x - lut[LUT_PROJECTION_MIN_X])/delta_x)
+    lut_x2 = math.ceil((x - lut[LUT_PROJECTION_MIN_X])/delta_x)
+    lut_y = math.floor((y - lut[LUT_PROJECTION_MIN_Y])/delta_y)
+    lut_y2 = math.ceil((y - lut[LUT_PROJECTION_MIN_Y])/delta_y)
+
+    # remove the farthest corner
+    corners_pixel_space = np.array([[lut[LUT_PROJECTION_U][int(lut_y), int(lut_x)], lut[LUT_PROJECTION_V][int(lut_y), int(lut_x)]]
+        , [lut[LUT_PROJECTION_U][int(lut_y), int(lut_x2)], lut[LUT_PROJECTION_V][int(lut_y), int(lut_x2)]]
+        , [lut[LUT_PROJECTION_U][int(lut_y2), int(lut_x)], lut[LUT_PROJECTION_V][int(lut_y2), int(lut_x)]]
+        , [lut[LUT_PROJECTION_U][int(lut_y2), int(lut_x2)], lut[LUT_PROJECTION_V][int(lut_y2), int(lut_x2)]]]) # shape (4,2)
+    corners_camera_space = np.array([[lut[LUT_PROJECTION_MIN_X] + lut_x*delta_x, lut[LUT_PROJECTION_MIN_Y] + lut_y*delta_y]
+        , [lut[LUT_PROJECTION_MIN_X] + lut_x2*delta_x, lut[LUT_PROJECTION_MIN_Y] + lut_y*delta_y]
+        , [lut[LUT_PROJECTION_MIN_X] + lut_x*delta_x, lut[LUT_PROJECTION_MIN_Y] + lut_y2*delta_y]
+        , [lut[LUT_PROJECTION_MIN_X] + lut_x2*delta_x, lut[LUT_PROJECTION_MIN_Y] + lut_y2*delta_y]]) # shape (4,2)
+    squared_distances = np.sum((corners_camera_space - [x,y])**2, axis=1) # shape (4,)
+    index = np.argmax(squared_distances)
+    corners_pixel_space = np.delete(corners_pixel_space, index, axis=0) # shape (3,2)
+    corners_camera_space = np.delete(corners_camera_space, index, axis=0) # shape (3,2)
+
+    b = barycentric(np.array((x,y)), corners_camera_space[0], corners_camera_space[1], corners_camera_space[2])
+    if b is None:
+        return None
+
+    image_x = b[0]*corners_pixel_space[0][0] + b[1]*corners_pixel_space[1][0] + b[2]*corners_pixel_space[2][0]
+    image_y = b[0]*corners_pixel_space[0][1] + b[1]*corners_pixel_space[1][1] + b[2]*corners_pixel_space[2][1]
+    return (image_x, image_y)
+
+# brute force to find the position in the 2D image coordinate space (too slow use get_lut_pixel_image instead)
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
+# (x,y,z) in camera space
+def get_lut_pixel_image_brute_force(lut, x, y, z):
     if z <= 0:
         return None
 
@@ -65,16 +144,16 @@ def get_lut_pixel_image(lut, x, y, z):
     CLOSEST_CAMERA_SPACE = 0
     CLOSEST_IMAGE_SPACE = 1
     CLOSEST_DISTANCE = 2
-    for j in range(lut[0].shape[0]):
-        for i in range(lut[0].shape[1]):
-            dist = (x - lut[0][j,i])**2 + (y - lut[1][j,i])**2
+    for j in range(lut[LUT_PROJECTION_X].shape[0]):
+        for i in range(lut[LUT_PROJECTION_X].shape[1]):
+            dist = (x - lut[LUT_PROJECTION_X][j,i])**2 + (y - lut[LUT_PROJECTION_Y][j,i])**2
             for k in range(3):
                 if dist < closest[k][CLOSEST_DISTANCE]:
                     if k <= 1:
                         closest[2] = copy.copy(closest[1])
                     if k == 0:
                         closest[1] = copy.copy(closest[0])
-                    closest[k] = [(lut[0][j,i], lut[1][j,i]), (i/2, j/2), dist]
+                    closest[k] = [(lut[LUT_PROJECTION_X][j,i], lut[LUT_PROJECTION_Y][j,i]), (i/2, j/2), dist]
                     break
 
     # print(f"closest {closest}")
@@ -103,22 +182,22 @@ def get_normalized_lut_projection(lut_x, lut_y):
     return lut
 
 # get only the lut for the middle of the pixels (0.5,0.5), (0.5,1.5), ...
-# lut shape (2, height*2 + 1, width*2 + 1)
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
 # output shape (height*width, 3)
 def get_lut_projection_pixel_mapping(lut):
-    lut_x = lut[0][1:-1,1:-1]
+    lut_x = lut[LUT_PROJECTION_X][1:-1,1:-1]
     lut_x = lut_x[0::2, 0::2] # shape (height, width)
     # print(f"lut_x.shape {lut_x.shape} lut_x.dtype {lut_x.dtype}")
-    lut_y = lut[1][1:-1,1:-1]
+    lut_y = lut[LUT_PROJECTION_Y][1:-1,1:-1]
     lut_y = lut_y[0::2, 0::2] # shape (height, width)
     return get_normalized_lut_projection(lut_x, lut_y) # shape (height*width, 3)
 
 # get only the lut for the top-left corner of the pixels (0.,0.), (0.,1.*skip_factor), ...
-# lut shape (2, height*2 + 1, width*2 + 1)
+# lut[:2] shape (2, height*2 + 1, width*2 + 1)
 # output shape ((height/skip_factor + 1)*(width/skip_factor + 1), 3)
 def get_lut_projection_camera_mapping(lut, skip_factor=1):
-    lut_x = lut[0][0::2*skip_factor, 0::2*skip_factor] # shape (height/skip_factor + 1, width/skip_factor + 1)
-    lut_y = lut[1][0::2*skip_factor, 0::2*skip_factor] # shape (height/skip_factor + 1, width/skip_factor + 1)
+    lut_x = lut[LUT_PROJECTION_X][0::2*skip_factor, 0::2*skip_factor] # shape (height/skip_factor + 1, width/skip_factor + 1)
+    lut_y = lut[LUT_PROJECTION_Y][0::2*skip_factor, 0::2*skip_factor] # shape (height/skip_factor + 1, width/skip_factor + 1)
 
     # return get_normalized_lut_projection(lut_x, lut_y) # shape ((height/skip_factor + 1)*(width/skip_factor + 1), 3)
 

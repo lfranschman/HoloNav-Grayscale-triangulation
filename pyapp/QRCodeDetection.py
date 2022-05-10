@@ -2,8 +2,8 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 
-from python.common.UtilMaths import get_mat_mrp, vec3_to_vec4, intersection_lines, point_based_registration
-from calibration_helpers import get_lut_projection_pixel
+from  python.common.UtilMaths import get_mat_mrp, vec3_to_vec4, intersection_lines, point_based_registration
+from calibration_helpers import get_lut_projection_int_pixel
 
 class QRCodeDetection:
     MARKER_LENGTH = 60 # in mm # size printed QR code 6cm
@@ -64,11 +64,11 @@ class QRCodeDetection:
 
                 corners = []
                 for corner in range(4):
-                    corner_left_c_left = get_lut_projection_pixel(lut_projection_left, bboxs_left[id_left][0][corner][0], bboxs_left[id_left][0][corner][1])
+                    corner_left_c_left = get_lut_projection_int_pixel(lut_projection_left, bboxs_left[id_left][0][corner][0], bboxs_left[id_left][0][corner][1])
                     corner_left_w = np.matmul(extrinsic_left, vec3_to_vec4(corner_left_c_left))
                     origin_left_w = np.matmul(extrinsic_left, np.array([0,0,0,1]))
 
-                    corner_right_c_right = get_lut_projection_pixel(lut_projection_right, bboxs_right[id_right][0][corner][0], bboxs_right[id_right][0][corner][1])
+                    corner_right_c_right = get_lut_projection_int_pixel(lut_projection_right, bboxs_right[id_right][0][corner][0], bboxs_right[id_right][0][corner][1])
                     corner_right_w = np.matmul(extrinsic_right, vec3_to_vec4(corner_right_c_right))
                     origin_right_w = np.matmul(extrinsic_right, np.array([0,0,0,1]))
 
