@@ -118,7 +118,7 @@ class Communication:
         if message_size > 0:
             buffer = recvexactly(request, compressed_message_size)
             if len(buffer) == 0: # closed connection
-                log_print("error connection receive 2")
+                log_print("error connection receive message")
                 return None
             if compressed_message_size != message_size:
                 buffer = zlib.decompress(buffer)
@@ -434,6 +434,12 @@ class CommunicationLUTCameraProjection(Communication):
     def initialize(self):
         self.lut_camera_projection_x = [None,None,None,None]
         self.lut_camera_projection_y = [None,None,None,None]
+        self.lut_camera_projection_u = [None,None,None,None]
+        self.lut_camera_projection_v = [None,None,None,None]
+        self.camera_space_min_x = [0,0,0,0]
+        self.camera_space_max_x = [0,0,0,0]
+        self.camera_space_min_y = [0,0,0,0]
+        self.camera_space_max_y = [0,0,0,0]
 
     def receive_specific(self, buffer):
         try:
@@ -462,6 +468,24 @@ class CommunicationLUTCameraProjection(Communication):
                         self.lut_camera_projection_y[i] = struct.unpack(f"<{lut_size}f", buffer[inc:inc + size]) # float32 # '>' big-endian, '<' little-endian
                         self.lut_camera_projection_y[i] = np.array(self.lut_camera_projection_y[i], dtype=np.float32).reshape((height*2 + 1,width*2 + 1))
                         inc += size
+
+                        lut_x_y_size = (width*3)*(height*3)
+                        size = lut_x_y_size*4 # lut_x_y_size*sizeof(qf32)
+                        self.lut_camera_projection_u[i] = struct.unpack(f"<{lut_x_y_size}f", buffer[inc:inc + size]) # float32 # '>' big-endian, '<' little-endian
+                        self.lut_camera_projection_u[i] = np.array(self.lut_camera_projection_u[i], dtype=np.float32).reshape((height*3,width*3))
+                        inc += size
+
+                        self.lut_camera_projection_v[i] = struct.unpack(f"<{lut_x_y_size}f", buffer[inc:inc + size]) # float32 # '>' big-endian, '<' little-endian
+                        self.lut_camera_projection_v[i] = np.array(self.lut_camera_projection_v[i], dtype=np.float32).reshape((height*3,width*3))
+                        inc += size
+
+                        size = 4*4 # 4*sizeof(qf32)
+                        parameters = struct.unpack("<4f", buffer[inc:inc + size]) # float32 # '>' big-endian, '<' little-endian
+                        inc += size
+                        self.camera_space_min_x[i] = parameters[0]
+                        self.camera_space_max_x[i] = parameters[1]
+                        self.camera_space_min_y[i] = parameters[2]
+                        self.camera_space_max_y[i] = parameters[3]
 
         except struct.error as e:
             log_print("EXCEPTION CommunicationLUTCameraProjection before")

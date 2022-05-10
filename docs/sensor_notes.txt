@@ -1,0 +1,15 @@
+The depth camera uses active infrared (IR) illumination to determine depth through phase-based time-of-flight. The camera can operate in two modes. The first mode enables high-framerate (45 FPS) near-depth sensing, commonly used for hand tracking, while the other mode is used for lower-framerate (1-5 FPS) far-depth sensing, currently used by spatial mapping. As hands only need to be supported up to 1 meter from the device, HoloLens 2 saves power by reducing the number of illuminations, which results in the depth wrapping around beyond one meter. For example, something at 1.3 meters will appear at 0.3 meters in HoloLens 2 in this case. In addition to depth, this camera also delivers actively illuminated IR images (in both modes) that can be valuable in their own right because they are illuminated from the HoloLens and reasonably unaffected by ambient light.
+
+long throw mode depth camera (LT, 320x288/16bits/5fps)
+long throw depth frames return a depth buffer, a sigma buffer and an active brightness buffer
+sigma buffer is used to invalidate unreliable depth based on the invalidation mask computed by the depth algorithm.
+
+articulated hand-tracking mode depth camera (AHAT, 512x512/16bits/45fps)
+AHAT depth frames return a depth buffer and an active brightness buffer
+for AHAT, invalidation codes are embedded in the depth channel. Pixels with values greater than 4090 are invalid.
+AHAT gives pseudo-depth with phase wrap beyond 1 meter
+"Aliased depth" from the phase-based ToF camera: the signal contains only the fractional part of the distance from the device when expressed in meters
+"Wraps around" every 1m
+
+active brightness buffer returns a so-called IR reading. value of pixels in the clean IR reading is proportional to the amount of light returned from the scene. The image looks similar to a regular IR image
+Two versions of the IR-reflectivity stream - Used by the HoloLens to compute depth. These images are illuminated by infrared and unaffected by ambient visible light
