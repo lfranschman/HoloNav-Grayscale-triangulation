@@ -114,7 +114,6 @@ def find_optical_spheres():
             for i, sphere_pos in enumerate(sphere_positions):
                 pos_sphere1_c = np.matmul(mat_m_to_c, sphere_pos)
                 # t1 = time.time()
-                print(pos_sphere1_c)
                 coord = get_lut_pixel_image(lut_projection, pos_sphere1_c[0], pos_sphere1_c[1], pos_sphere1_c[2])
                 # print(f"get lut {time.time() - t1} s")
                 if coord is not None and not math.isnan(coord[0]) and not math.isnan(coord[1]):

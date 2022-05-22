@@ -96,9 +96,6 @@ def get_lut_pixel_image(lut, x, y, z):
 
     if x < lut[LUT_PROJECTION_MIN_X] or x > lut[LUT_PROJECTION_MAX_X] \
         or y < lut[LUT_PROJECTION_MIN_Y] or y > lut[LUT_PROJECTION_MAX_Y]:
-        # print(x)
-        # print(lut[LUT_PROJECTION_MIN_X])
-        # print(lut[LUT_PROJECTION_MAX_X])
         return None
 
     # get corners coordinate in the look-up-table around the point (x,y,1)
