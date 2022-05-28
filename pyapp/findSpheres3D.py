@@ -449,7 +449,7 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
 if  __name__ == '__main__':
 
-    # find_optical_spheres_c()
+    # find_markers_in_worldspace
     data = DataAcquisition()
     optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\true_sphere_positions.pickle.gz")
     # # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
