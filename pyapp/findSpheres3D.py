@@ -72,7 +72,7 @@ def find_markers_in_worldspace():
     # print(mat_w_to_o)
 
     mat_o_to_w = np.linalg.inv(mat_w_to_o)
-    for camera in ["vl_front_left_cam", "vl_front_right_cam"]:
+    for camera in ["vl_front_left_cam", "vl_front_right_cam", "ahat_depth_cam"]:
         print(f"camera {camera}")
         for frame_id in range(76, len(data.acquisitions[camera])):
             timestamp = data.acquisitions[camera].index[frame_id]
@@ -104,7 +104,7 @@ def find_markers_in_worldspace():
                 points.append(pos_sphere1_c)
             dataEntry = [points[0], points[1], points[2], points[3]]
             newData["true_sphere_positions"].loc[timestamp] = dataEntry
-    save_pickle(newData, config.get_filename("true_sphere_positions"))
+    save_pickle(newData, config.get_filename("true_sphere_positions_3cam"))
     return points
 
 
@@ -451,7 +451,7 @@ if  __name__ == '__main__':
 
     # find_markers_in_worldspace()
     data = DataAcquisition()
-    optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\true_sphere_positions.pickle.gz")
+    optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\true_sphere_positions_3cam.pickle.gz")
     # # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
     #
     data.load_data(config.get_filename("optical_sphere"))
@@ -482,6 +482,7 @@ if  __name__ == '__main__':
             if abs(ts - timestamp) < abs(best_ts - timestamp):
                 best_ts = ts
                 opticalID = i
+
 
         print(f"left_idx : {leftID}, right_idx : {rightID}, depth_idx : {frameIdIR}, optical_idx : {opticalID}")
 
@@ -591,6 +592,14 @@ if  __name__ == '__main__':
         opticals = []
         optical_timestamp = optical_locs["true_sphere_positions"].index[opticalID]
         markers = optical_locs["true_sphere_positions"].loc[optical_timestamp]
+        # optical_timestamp = data.acquisitions["probe"].index[962]
+        # # print(optical_timestamp)
+        # optical_serie = data.acquisitions["probe"]
+        # print(optical_serie)
+        # mat_m_to_o = get_mat_m_to_o_series(optical_serie)
+        # mat_o_to_w = getMatOToW()
+        # print(np.matmul(mat_m_to_o,sphere_markers))
+
         for marker in markers:
             opticals.append(marker)
 
