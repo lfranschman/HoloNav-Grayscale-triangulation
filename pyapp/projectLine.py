@@ -19,8 +19,8 @@ from pyapp.templateMatching import rotate_line_counterclockwise, rotate_line_clo
 import glob
 import os
 
-from  python.common.UtilMaths import get_mat_mrp, vec3_to_vec4, intersection_lines, point_based_registration
-
+from python.common.UtilMaths import get_mat_mrp, vec3_to_vec4, intersection_lines, point_based_registration, \
+    squared_distance_vector_3d
 
 left_idx = 280
 right_idx = 0
@@ -159,29 +159,35 @@ def getMatOToW():
     return mat_o_to_w
 
 
-def triangulate(spheres, leftID, rightID):
+def triangulate(spheres, leftID, rightID, infraredID):
 
+    lutInfrared = data.acquisitions["ahat_depth_cam" + "_lut_projection"]
     lutGreyScaleLeft = data.acquisitions["vl_front_left_cam" + "_lut_projection"]
     lutGreyScaleRight = data.acquisitions["vl_front_right_cam" + "_lut_projection"]
 
+    timestampIR = data.acquisitions["ahat_depth_cam"].index[infraredID]
     timestampLeft = data.acquisitions["vl_front_left_cam"].index[leftID]
     timestampRight = data.acquisitions["vl_front_right_cam"].index[rightID]
 
+    serieIR = data.acquisitions["ahat_depth_cam"].loc[timestampIR]
     serieLeft = data.acquisitions["vl_front_left_cam"].loc[timestampLeft]
     serieRight = data.acquisitions["vl_front_right_cam"].loc[timestampRight]
 
     print(timestampLeft)
     print(timestampRight)
 
+    extrinsicIR = get_mat_c_to_w_series(serieIR)
     extrinsicLeft = get_mat_c_to_w_series(serieLeft)
     extrinsicRight = get_mat_c_to_w_series(serieRight)
+
+    mat_w_to_c_IR = np.linalg.inv(extrinsicIR)
 
     sphere_positions = []
     for (l, r) in spheres:
         cam_coord_left =  get_lut_projection_pixel(lutGreyScaleLeft, l[0], l[1])
         cam_coord_left = vec3_to_vec4(cam_coord_left)
         world_coord_left = np.matmul(extrinsicLeft, cam_coord_left)
-        # print(world_coord_left)
+        print(world_coord_left)
         origin_left_world = np.matmul(extrinsicLeft, np.array([0, 0, 0, 1]))
 
         cam_coord_right = get_lut_projection_pixel(lutGreyScaleRight, r[0], r[1])
@@ -189,8 +195,10 @@ def triangulate(spheres, leftID, rightID):
         world_coord_right = np.matmul(extrinsicRight, cam_coord_right)
         origin_right_world = np.matmul(extrinsicRight, np.array([0, 0, 0, 1]))
 
-        sphere_pos =  intersection_lines(origin_left_world, world_coord_left, origin_right_world, world_coord_right)
+        sphere_pos = intersection_lines(origin_left_world, world_coord_left, origin_right_world, world_coord_right)
+        # sphere_pos = np.matmul(mat_w_to_c_IR, vec3_to_vec4(sphere_pos)
         sphere_positions.append(sphere_pos)
+
 
     return np.array(sphere_positions)
 
@@ -440,19 +448,16 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
 
 if  __name__ == '__main__':
-    # find_markers_in_worldspace()
+
+    # find_optical_spheres_c()
     data = DataAcquisition()
     optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\true_sphere_positions.pickle.gz")
-    # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
-
-
-
+    # # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
+    #
     data.load_data(config.get_filename("optical_sphere"))
     mean_errors = []
 
-
-
-    for i in range(270, 320):
+    for i in range(270, 271):
         leftID = i
 
         timestamp = data.acquisitions["vl_front_left_cam"].index[leftID]
@@ -572,29 +577,25 @@ if  __name__ == '__main__':
         print(sphere_locations[0][0])
         print(sphere_locations[0][0][0])
 
-        positions_spheres_3D = triangulate(sphere_locations, leftID, rightID)
+        positions_spheres_3D = triangulate(sphere_locations, leftID, rightID, frameIdIR)
         positions_spheres_3D = np.array(positions_spheres_3D)
-        print(opticalID)
-        timestamp = optical_locs["true_sphere_positions"].index[opticalID]
-        markers = optical_locs["true_sphere_positions"].loc[timestamp]
-        # markers =  [[ -20.62985174, -276.2432729 , -428.32336152, 1.],
-        #             [   7.35079869, -274.62029105, -469.72961264, 1.],
-        #             [ -19.37021347, -255.51887871, -513.83893201, 1.]
-        #             [ -62.51602258, -254.25758208, -465.23735604, 1.]]
-
-        print(markers)
-
         print(positions_spheres_3D)
 
-        # print(mat_o_to_w)
+        # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
+        sphere_markers = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1], [0, -44.32, 40.45, 1]]
 
+        optical_timestamp = optical_locs["true_sphere_positions"].index[opticalID]
+        markers = optical_locs["true_sphere_positions"].loc[optical_timestamp]
+
+        print(markers)
         sum = 0
         for i in range(0, 4):
-            diff = np.linalg.norm(markers[i][0:3] - positions_spheres_3D[i])
-
-            squared_diff = diff**2  # taking square of the differene
-            sum = sum + squared_diff # taking a sum of all the differences
+            # diff = np.linalg.norm(markers[i][0:3] - positions_spheres_3D[i])
+            dist = squared_distance_vector_3d(markers[i][0:3], positions_spheres_3D[i])
+            # print(dist)
+            sum = sum + dist # taking a sum of all the differences
         MSE = sum / 4  # dividing summation by total values to obtain average
+        print(MSE)
         mean_errors.append(MSE)
 
         plt.subplot(121)
@@ -621,7 +622,7 @@ if  __name__ == '__main__':
     print(mean_errors)
     fig = plt.figure()
     plt.plot(mean_errors)
-    fig.savefig("resplotMSE.png", dpi=fig.dpi)
+    fig.savefig("resplotMSE_2.png", dpi=fig.dpi)
     plt.show()
 
 

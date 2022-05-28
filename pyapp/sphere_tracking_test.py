@@ -142,11 +142,11 @@ def find_optical_spheres_c():
     data = DataAcquisition()
     newData = {}
     data.load_data(config.get_filename("optical_sphere"))
-    newData["true_sphere_positions"] = pd.DataFrame([], columns=['time',
+    newData["true_sphere_positions_c"] = pd.DataFrame([], columns=['time',
                                                                            'sphere1', 'sphere2',
                                                                            'sphere3', 'sphere4'])
-    newData["true_sphere_positions"] = \
-        newData["true_sphere_positions"].set_index("time")
+    newData["true_sphere_positions_c"] = \
+        newData["true_sphere_positions_c"].set_index("time")
     for acquisition in ACQUISITIONS_HOLOLENS:
         if not data.acquisitions[acquisition].empty:
             data.acquisitions[acquisition].index = data.acquisitions[
@@ -214,8 +214,8 @@ def find_optical_spheres_c():
                 print(f"frame{frame_id:04.0f}: coords {pos_sphere1_c}")
                 points.append(pos_sphere1_c)
             dataEntry = [points[0], points[1], points[2], points[3]]
-            newData["true_sphere_positions"].loc[timestamp] = dataEntry
-    save_pickle(newData, config.get_filename("true_sphere_positions"))
+            newData["true_sphere_positions_c"].loc[timestamp] = dataEntry
+    save_pickle(newData, config.get_filename("true_sphere_positions_c"))
 
 
 if __name__ == '__main__':
