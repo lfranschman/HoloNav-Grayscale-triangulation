@@ -572,30 +572,44 @@ if  __name__ == '__main__':
             posRight = find_sphere(right, templates, right_lines[i][0], right_lines[i][1], right_valid)
             cv2.circle(right_annotated, posRight, 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
             sphere_locations.append((posLeft, posRight))
-        # print(sphere_locations)
+        print("2D sphere coordinates in greyscales (list of [left , right]):")
+        print(np.array(sphere_locations))
         # print(sphere_locations[0])
         # print(sphere_locations[0][0])
         # print(sphere_locations[0][0][0])
 
+
         positions_spheres_3D = triangulate(sphere_locations, leftID, rightID, frameIdIR)
         positions_spheres_3D = np.array(positions_spheres_3D)
+        print("triangulated points:")
         print(positions_spheres_3D)
+
+
 
         # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
         sphere_markers = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1], [0, -44.32, 40.45, 1]]
-
+        opticals = []
         optical_timestamp = optical_locs["true_sphere_positions"].index[opticalID]
         markers = optical_locs["true_sphere_positions"].loc[optical_timestamp]
+        for marker in markers:
+            opticals.append(marker)
 
-        print(markers)
+        print("optical points in world space:")
+        print(np.array(opticals))
+        print("\n")
         sum = 0
+        print("distances between the spheres:")
         for i in range(0, 4):
             # diff = np.linalg.norm(markers[i][0:3] - positions_spheres_3D[i])
             dist = squared_distance_vector_3d(markers[i][0:3], positions_spheres_3D[i])
-            print(dist)
+            print(np.sqrt(dist))
+
             sum = sum + dist # taking a sum of all the differences
         MSE = sum / 4  # dividing summation by total values to obtain average
+
+        print("mean squre error of the frame:")
         print(MSE)
+        print("\n")
         mean_errors.append(MSE)
 
         plt.subplot(121)
