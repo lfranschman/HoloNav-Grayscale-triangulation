@@ -58,22 +58,6 @@ def rotate_line_clockwise(lines, h, w):
     p2 = [h-p2[1], p2[0]]
     lines[i] = [p1, p2]
 
-#-----------------------------------------------------------
-# Parameters:
-#    img : (MxN) greyscale image in to search
-#    templates : list of (templ_gray, templ_mask)
-#      templ_gray : (PxQ) grayscale template image
-#      templ_mask : (PxQ) mask of template (non zero where pixel are valids)
-#    pt1, pt2 : (1x2), (1x2) line where to search for templ. The line should be
-#                 the center of the template
-#    valid : (MxN) map where search is valid. This is filled with every match
-#                       It ensures that successive matches are not overlapping
-#                       Zero means valid
-#
-#    line_thickness : Margin of error when the match is not exactly on the line
-# Returns:
-#    match (1x2) : location where of the best match
-#
 
 def find_sphere(img, templates, pt1, pt2, valid, line_thickness=10):
   scores = []
