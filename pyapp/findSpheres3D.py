@@ -8,7 +8,7 @@ import pandas as pd
 import scipy
 import skimage as ski
 import skimage.io
-# from sphere_tracking_test import find_optical_spheres_c
+from sphere_tracking_test import find_optical_spheres_c
 from pyapp.DataAcquisition import DataAcquisition, ACQUISITIONS_HOLOLENS
 from config import config
 from pyapp.calibration_helpers import get_mat_c_to_w_series, get_lut_projection_pixel, get_lut_pixel_image, \
@@ -460,11 +460,11 @@ if  __name__ == '__main__':
     data.load_data(config.get_filename("optical_sphere"))
     mean_errors = []
 
-    for i in range(270, 271):
+    for i in range(200, 700):
         leftID = i
 
         timestamp = data.acquisitions["vl_front_left_cam"].index[leftID]
-
+        print(timestamp)
         frameIdIR = 0
         best_ts = data.acquisitions["ahat_depth_cam"].index[0]
         for i, ts in enumerate(data.acquisitions["ahat_depth_cam"].index):
@@ -479,15 +479,17 @@ if  __name__ == '__main__':
                 best_ts = ts
                 rightID = i
 
-        opticalID = i
+        opticalID = 0
         best_ts = optical_locs["true_sphere_positions"].index[0]
         for i, ts in enumerate(optical_locs["true_sphere_positions"].index):
+            print(abs(ts - timestamp))
             if abs(ts - timestamp) < abs(best_ts - timestamp):
                 best_ts = ts
                 opticalID = i
 
 
-        # opticalTestID = data.acquisitions["probe"].index.get_loc(timestamp, method='nearest')
+        # opticalID = optical_locs["true_sphere_positions"].index[leftID]
+        print(opticalID)
 
 
 
@@ -496,14 +498,14 @@ if  __name__ == '__main__':
         # # print(len(data.acquisitions['vl_front_left_cam_lut_projection']))
         frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][leftID])
         # ski.io.imsave("leftX.png", frame1)
-        # cv2.imwrite("leftX.png", frame1)
+        cv2.imwrite("leftX.png", frame1)
         # left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
 
         # left = cv2.imread("left2.png", cv2.IMREAD_GRAYSCALE)
         # h, w = left.shape[:2]
         frame2 = np.copy(data.acquisitions['vl_front_right_cam_frames'][rightID])
         # ski.io.imsave("rightX.png", frame2)
-        # cv2.imwrite("rightX.png", frame2)
+        cv2.imwrite("rightX.png", frame2)
 
         # right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
@@ -521,14 +523,12 @@ if  __name__ == '__main__':
             continue
 
         # Load input image as grayscale
-        # left = cv2.imread("leftX.png", cv2.IMREAD_GRAYSCALE)
-        left = frame1
+        left = cv2.imread("leftX.png", cv2.IMREAD_GRAYSCALE)
         # print(type(left))
         h, w = left.shape[:2]
         left = cv2.rotate(left, cv2.ROTATE_90_CLOCKWISE)
         newH, newW = left.shape[:2]
-        # right = cv2.imread("rightX.png", cv2.IMREAD_GRAYSCALE)
-        right = frame2
+        right = cv2.imread("rightX.png", cv2.IMREAD_GRAYSCALE)
         right = cv2.rotate(right, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         # Convert to RGB to draw the colored circles
@@ -608,9 +608,21 @@ if  __name__ == '__main__':
         # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
         sphere_markers = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1], [0, -44.32, 40.45, 1]]
         opticals = []
+        # 77.08264179851419
         optical_timestamp = optical_locs["true_sphere_positions"].index[opticalID]
         markers = optical_locs["true_sphere_positions"].loc[optical_timestamp]
+        # print(optical_locs["true_sphere_positions"].loc)
+        # markers = optical_locs["true_sphere_positions"].loc[timestamp]
 
+        # optical_timestamp = data.acquisitions["probe"].index[opticalTestID]
+        # # # print(optical_timestamp)
+        # optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
+        # # print(optical_serie)
+        # mat_m_to_o = get_mat_m_to_o_series(optical_serie)
+        # mat_o_to_w = getMatOToW()
+        # print("test output here:\n")
+        # print(np.matmul(mat_o_to_w, np.matmul(mat_m_to_o, sphere_markers)))
+        # print("\n")
 
         for marker in markers:
             opticals.append(marker)
@@ -657,7 +669,7 @@ if  __name__ == '__main__':
     print(mean_errors)
     fig = plt.figure()
     plt.plot(mean_errors)
-    fig.savefig("resplotMSE_3.png", dpi=fig.dpi)
+    # fig.savefig("resplotMSE_7.png", dpi=fig.dpi)
     plt.xlabel('frames')
     plt.ylabel('RMSE')
 
