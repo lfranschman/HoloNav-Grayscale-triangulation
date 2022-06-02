@@ -19,13 +19,9 @@ from pyapp.templateMatching import rotate_line_counterclockwise, rotate_line_clo
     rotate_point_counterclockwise, rotate_point_clockwise
 import glob
 import os
-
+from sphere_tracking import find_optical_spheres
 from python.common.UtilMaths import get_mat_mrp, vec3_to_vec4, intersection_lines, point_based_registration, \
     squared_distance_vector_3d
-
-left_idx = 280
-right_idx = 0
-depth_idx = 0
 
 
 def find_markers_in_worldspace():
@@ -73,9 +69,18 @@ def find_markers_in_worldspace():
     # print(mat_w_to_o)
 
     mat_o_to_w = np.linalg.inv(mat_w_to_o)
-    for camera in ["vl_front_left_cam", "vl_front_right_cam", "ahat_depth_cam"]:
+
+
+    for camera in ["vl_front_left_cam", "vl_front_right_cam"]:
         print(f"camera {camera}")
-        for frame_id in range(76, len(data.acquisitions[camera])):
+
+        lut_projection = data.acquisitions[camera + "_lut_projection"]
+
+        nb_images_remaining = 40  # just want to do it for the nb_images_remaining first images
+        # nb_images_remaining = 10000 # just want to do it for the nb_images_remaining first images
+        # for frame_id in range(len(data.acquisitions[camera + "_frames"])):
+        for frame_id in range(245, 892):
+            print(f"frame_id {frame_id}")
             timestamp = data.acquisitions[camera].index[frame_id]
             serie = data.acquisitions[camera].loc[timestamp]
             extrinsic = get_mat_c_to_w_series(serie)
@@ -86,27 +91,48 @@ def find_markers_in_worldspace():
             # print(f"optical_index {optical_index} timestamp {timestamp} optical_timestamp {optical_timestamp}")
 
             # we keep only if time difference is less than 20ms
-            if abs((timestamp - optical_timestamp).total_seconds()) > 0.025:
+            if abs((timestamp - optical_timestamp).total_seconds()) > 0.02:
                 continue  # skip this frame
 
             optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
             mat_m_to_o = get_mat_m_to_o_series(optical_serie)
 
+            # compute mat_w_to_o each time with the qr code in the current frame
+            # if True:
+            if False:
+                qr_code_index = data.acquisitions["qr_code_position"].index.get_loc(timestamp, method='nearest')
+                qr_code_timestamp = data.acquisitions["qr_code_position"].index[qr_code_index]
+                if abs((timestamp - qr_code_timestamp).total_seconds()) > 0.1:
+                    continue  # skip this frame
 
+                qr_code_serie = data.acquisitions["qr_code_position"].loc[qr_code_timestamp]
+                if qr_code_serie['q1_m44'] == 0:  # front qr code not detected for this timestamp
+                    continue  # skip this frame
 
+                mat_w_to_o, _ = get_mat_w_to_o(qr_code_serie, optical_serie, mat_qf_to_m)
+                mat_o_to_w = np.linalg.inv(mat_w_to_o)
+
+            # mat_m_to_c = np.matmul(mat_w_to_c, np.matmul(mat_o_to_w, mat_m_to_o))
+
+            frame = np.copy(data.acquisitions[camera + '_frames'][frame_id])  # shape (h,w)
             # NDI optical_markers_8700339, check Polaris_Spectra_Tool_Kit_Guide.pdf for the position of the spheres
-            sphere_positions = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1],
-                                [0, -44.32, 40.45, 1]]
+            sphere_positions = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1], [0, -44.32, 40.45, 1]]
+            draw_sphere = False
             points = []
             for i, sphere_pos in enumerate(sphere_positions):
                 pos_sphere1_c = np.matmul(mat_o_to_w, np.matmul(mat_m_to_o, sphere_pos))
+                # t1 = time.time()
+                # coord = get_lut_pixel_image(lut_projection, pos_sphere1_c[0], pos_sphere1_c[1], pos_sphere1_c[2])
                 # print(f"get lut {time.time() - t1} s")
-                print(f"frame{frame_id:04.0f}: coords {pos_sphere1_c}")
-                points.append(pos_sphere1_c)
+                if pos_sphere1_c is not None and not math.isnan(pos_sphere1_c[0]) and not math.isnan(
+                        pos_sphere1_c[1]) and not math.isnan(pos_sphere1_c[2]):
+                    print(f"center of the sphere {i}: {pos_sphere1_c}")
+                    # draw_disk(frame, coord[0], coord[1], 255, size=1)
+                    # draw_sphere = True
+                    points.append(pos_sphere1_c)
             dataEntry = [points[0], points[1], points[2], points[3]]
             newData["true_sphere_positions"].loc[timestamp] = dataEntry
-    save_pickle(newData, config.get_filename("true_sphere_positions_3cam"))
-    return points
+    save_pickle(newData, config.get_filename("true_sphere_positions_w"))
 
 
 def houghTransform(img):
@@ -229,10 +255,10 @@ def markersToWorld(frameID):
 
 def drawPoints(image, points):
     lastCoord = points[len(points)-1]
-    # for point in points:
-    #     color = tuple(np.random.randint(0, 255, 3).tolist())
-    #     cv2.circle(image, tuple(point), 5, color, -1)
-    cv2.line(image, tuple(points[0]), tuple(lastCoord), tuple(np.random.randint(0, 255, 3).tolist()), 2)
+    for point in points:
+        color = tuple(np.random.randint(0, 255, 3).tolist())
+        cv2.circle(image, tuple(point), 5, color, -1)
+    # cv2.line(image, tuple(points[0]), tuple(lastCoord), tuple(np.random.randint(0, 255, 3).tolist()), 2)
     # print(points[0])
     # print(lastCoord)
     return image
@@ -419,13 +445,11 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
             if rightImageCoord2D is not None and not math.isnan(rightImageCoord2D[0]) and not math.isnan(rightImageCoord2D[1]):
                 pointsRight.append(list(rightImageCoord2D))
 
-        if len(pointsLeft) > 0:
-            firstCoordLeft = pointsLeft[0]
-            lastCoordLeft = pointsLeft[len(pointsLeft) - 1]
+        firstCoordLeft = pointsLeft[0]
+        lastCoordLeft = pointsLeft[len(pointsLeft) - 1]
 
-        if len(pointsRight) > 0:
-            firstCoordRight = pointsRight[0]
-            lastCoordRight = pointsRight[len(pointsRight) - 1]
+        firstCoordRight = pointsRight[0]
+        lastCoordRight = pointsRight[len(pointsRight) - 1]
 
         leftLine = [firstCoordLeft, lastCoordLeft]
         lineCoordsLeft.append(leftLine)
@@ -437,8 +461,8 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
         # print(np.unique(np.int32(pointsLeft)))
         # print(np.unique(np.int32(pointsRight)))
-        # imgLeft = drawPoints(imgLeft, np.int32(pointsLeft))
-        # imgRight = drawPoints(imgRight, np.int32(pointsRight))
+        imgLeft = drawPoints(imgLeft, np.int32(pointsLeft))
+        imgRight = drawPoints(imgRight, np.int32(pointsRight))
 
     lineCoordsLeft = np.int32(lineCoordsLeft)
     lineCoordsRight = np.int32(lineCoordsRight)
@@ -451,20 +475,22 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
 
 if  __name__ == '__main__':
-
-    # find_markers_in_worldspace()
+    # find_optical_spheres_c()
     data = DataAcquisition()
-    optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\true_sphere_positions_3cam.pickle.gz")
+    optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\world_positions.pickle.gz")
     # # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
     #
     data.load_data(config.get_filename("optical_sphere"))
     mean_errors = []
 
-    for i in range(200, 700):
+    minTot = 10000000
+    maxTot = 0
+
+    for i in range(270, 271):
         leftID = i
 
         timestamp = data.acquisitions["vl_front_left_cam"].index[leftID]
-        print(timestamp)
+
         frameIdIR = 0
         best_ts = data.acquisitions["ahat_depth_cam"].index[0]
         for i, ts in enumerate(data.acquisitions["ahat_depth_cam"].index):
@@ -480,32 +506,25 @@ if  __name__ == '__main__':
                 rightID = i
 
         opticalID = 0
-        best_ts = optical_locs["true_sphere_positions"].index[0]
-        for i, ts in enumerate(optical_locs["true_sphere_positions"].index):
-            print(abs(ts - timestamp))
+        best_ts = optical_locs["true_pos"].index[0]
+        for i, ts in enumerate(optical_locs["true_pos"].index):
             if abs(ts - timestamp) < abs(best_ts - timestamp):
                 best_ts = ts
                 opticalID = i
-
-
-        # opticalID = optical_locs["true_sphere_positions"].index[leftID]
-        print(opticalID)
-
-
 
         print(f"left_idx : {leftID}, right_idx : {rightID}, depth_idx : {frameIdIR}, optical_idx : {opticalID}")
 
         # # print(len(data.acquisitions['vl_front_left_cam_lut_projection']))
         frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][leftID])
         # ski.io.imsave("leftX.png", frame1)
-        cv2.imwrite("leftX.png", frame1)
+        # cv2.imwrite("leftX.png", frame1)
         # left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
 
         # left = cv2.imread("left2.png", cv2.IMREAD_GRAYSCALE)
         # h, w = left.shape[:2]
         frame2 = np.copy(data.acquisitions['vl_front_right_cam_frames'][rightID])
         # ski.io.imsave("rightX.png", frame2)
-        cv2.imwrite("rightX.png", frame2)
+        # cv2.imwrite("rightX.png", frame2)
 
         # right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
@@ -523,18 +542,23 @@ if  __name__ == '__main__':
             continue
 
         # Load input image as grayscale
-        left = cv2.imread("leftX.png", cv2.IMREAD_GRAYSCALE)
+        # left = cv2.imread("leftX.png", cv2.IMREAD_GRAYSCALE)
+        left = frame1
         # print(type(left))
         h, w = left.shape[:2]
         left = cv2.rotate(left, cv2.ROTATE_90_CLOCKWISE)
         newH, newW = left.shape[:2]
-        right = cv2.imread("rightX.png", cv2.IMREAD_GRAYSCALE)
+
+        # right = cv2.imread("rightX.png", cv2.IMREAD_GRAYSCALE)
+        right = frame2
         right = cv2.rotate(right, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         # Convert to RGB to draw the colored circles
         left_annotated = cv2.cvtColor(left, cv2.COLOR_GRAY2BGR)
         right_annotated = cv2.cvtColor(right, cv2.COLOR_GRAY2BGR)
 
+        rotatedBackLeft = cv2.rotate(left_annotated, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        rotatedBackRight = cv2.rotate(right_annotated, cv2.ROTATE_90_CLOCKWISE)
 
         rotate_line_clockwise(left_lines, h, w)
         rotate_line_counterclockwise(right_lines, h, w)
@@ -578,103 +602,77 @@ if  __name__ == '__main__':
         sphere_locations = []
         for i in range(4):
             posLeft = find_sphere(left, templates, left_lines[i][0], left_lines[i][1], left_valid)
-            # print(rotate_point_counterclockwise(posLeft, newH, newW))
-            cv2.circle(left_annotated, posLeft, 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
+            cv2.circle(rotatedBackLeft, rotate_point_counterclockwise(posLeft, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
             posRight = find_sphere(right, templates, right_lines[i][0], right_lines[i][1], right_valid)
-            cv2.circle(right_annotated, posRight, 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
+            cv2.circle(rotatedBackRight, rotate_point_clockwise(posRight, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
             sphere_locations.append((rotate_point_counterclockwise(posLeft, newH, newW),
-                                     rotate_point_clockwise(posRight, newH, newW)))
-            # testArray.append((rotate_point_counterclockwise(posLeft, h, w), rotate_point_clockwise(posRight, h , w)))
-        print("2D sphere coordinates in greyscales (list of [left , right]):")
-        print(np.array(sphere_locations))
-        # print("\n")
-        # print("test array rotated positions:")
-        # print(testArray)
-        # print("\n")
-
-
-        # print(sphere_locations[0])
+                                     rotate_point_clockwise(posRight, newH, newW)))        # print(sphere_locations)
+        # print(sphere_locations)
         # print(sphere_locations[0][0])
         # print(sphere_locations[0][0][0])
-
+        # sphere_locations_from_opticals=[
+        #     [[262, 287], [258, 76]],
+        #     [[309, 239], [311, 126]],
+        #     [[264, 206], [355, 161]],
+        #     [[211, 236], [408, 130]]
+        # ]
 
         positions_spheres_3D = triangulate(sphere_locations, leftID, rightID, frameIdIR)
         positions_spheres_3D = np.array(positions_spheres_3D)
-        print("triangulated points:")
         print(positions_spheres_3D)
+    #
+    #     # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
+    #
+        optical_timestamp = optical_locs["true_pos"].index[opticalID]
+        markers = optical_locs["true_pos"].loc[optical_timestamp]
+        print(markers)
+        # markers = np.array(markers)
+        # markers = find_optical_spheres(data, leftID)
+        if markers is None or len(markers) < 4:
+            continue
 
-
-
-        # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
-        sphere_markers = [[0, 0, 0, 1], [0, 28.59, 41.02, 1], [0, 0, 88, 1], [0, -44.32, 40.45, 1]]
-        opticals = []
-        # 77.08264179851419
-        optical_timestamp = optical_locs["true_sphere_positions"].index[opticalID]
-        markers = optical_locs["true_sphere_positions"].loc[optical_timestamp]
-        # print(optical_locs["true_sphere_positions"].loc)
-        # markers = optical_locs["true_sphere_positions"].loc[timestamp]
-
-        # optical_timestamp = data.acquisitions["probe"].index[opticalTestID]
-        # # # print(optical_timestamp)
-        # optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
-        # # print(optical_serie)
-        # mat_m_to_o = get_mat_m_to_o_series(optical_serie)
-        # mat_o_to_w = getMatOToW()
-        # print("test output here:\n")
-        # print(np.matmul(mat_o_to_w, np.matmul(mat_m_to_o, sphere_markers)))
-        # print("\n")
-
-        for marker in markers:
-            opticals.append(marker)
-
-        print("optical points in world space:")
-        print(np.array(opticals))
-        print("\n")
         sum = 0
-        print("distances between the spheres:")
-        for i in range(0, 4):
-            # diff = np.linalg.norm(markers[i][0:3] - positions_spheres_3D[i])
-            dist = squared_distance_vector_3d(markers[i][0:3], positions_spheres_3D[i])
-            # print(np.sqrt(dist))
 
-            sum = sum + np.sqrt(dist) # taking a sum of all the differences
-        MSE = sum / 4  # dividing summation by total values to obtain average
-
-        print("mean squre error of the frame:")
-        print(MSE)
-        print("\n")
-        mean_errors.append(MSE)
-
-        plt.subplot(121)
-        plt.imshow(left_annotated[:, :, ::-1])
-        plt.title("left")
-        plt.axis('off')
-
-        # plt.subplot(122)
-        # plt.imshow(left_valid)
-        # plt.title("valid")
-        # plt.show()
+        for m in markers:
+            min = 1000000
+            for pos in positions_spheres_3D:
+                dist = squared_distance_vector_3d(m[0:3], pos)
+                if dist < min:
+                    min = dist
+            sum = sum + np.sqrt(min)
+            print(np.sqrt(min))
+        RMSE = sum/4
+        print(RMSE)
+        mean_errors.append(RMSE)
+        if RMSE < minTot:
+            minTot = RMSE
+        if RMSE > maxTot:
+            maxTot = RMSE
+        # plt.subplot(121)
+        # plt.imshow(rotatedBackLeft)
+        # plt.title("left")
+        # plt.axis('off')
+        #
+        # # plt.subplot(122)
+        # # plt.imshow(left_valid)
+        # # plt.title("valid")
+        # # plt.show()
+        # #
+        # # plt.subplot(122)
+        # # plt.imshow(right_valid)
+        # # plt.title("valid")
+        # # plt.show()
         #
         # plt.subplot(122)
-        # plt.imshow(right_valid)
-        # plt.title("valid")
+        # plt.imshow(rotatedBackRight)
+        # plt.title("right")
+        # plt.axis('off')
         # plt.show()
 
-        plt.subplot(122)
-        plt.imshow(right_annotated[:, :, ::-1])
-        plt.title("right")
-        plt.axis('off')
-        plt.show()
-
     print(mean_errors)
+    print(minTot)
+    print(maxTot)
     fig = plt.figure()
     plt.plot(mean_errors)
-    # fig.savefig("resplotMSE_7.png", dpi=fig.dpi)
-    plt.xlabel('frames')
-    plt.ylabel('RMSE')
-
-    # displaying the title
-    plt.title("distance to ground truth")
-
+    fig.savefig("resplotRMSE_1.png", dpi=fig.dpi)
     plt.show()
-

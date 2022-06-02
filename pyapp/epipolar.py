@@ -9,6 +9,7 @@ from python.common.UtilImage import draw_disk
 from pyapp.DataAcquisition import DataAcquisition
 
 
+
 def rotate_image(image, angle):
   image_center = tuple(np.array(image.shape[1::-1]) / 2)
   rotation_matrx = cv2.getRotationMatrix2D(image_center, angle, 1.0)
@@ -71,119 +72,146 @@ def find_fund_matrix(image1, image2):
     return fundMatrix, mask, pointsLeft, pointsRight
 
 if  __name__ == '__main__':
-    data = DataAcquisition()
-    data.load_data(config.get_filename("optical_sphere"))
 
-    frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][0])
-    frame2 = np.copy(data.acquisitions['vl_front_right_cam_frames'][0])
+    # loading image
+    # img0 = cv2.imread('SanFrancisco.jpg',)
+    img0 = cv2.imread(r"C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\generated\vl_front_left_cam_0090.png", )
 
-    frame3 = np.copy(data.acquisitions['lt_depth_cam_ab_frames'][0])
-    frame4 = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][0])
-    # #frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
-    # ski.io.imsave(f"test_images/{'vl_front_left_cam'}_{0:04.0f}.png", frame1)
-    # ski.io.imsave(f"test_images/{'vl_front_right_cam'}_{0:04.0f}.png", frame2)
-    # ski.io.imsave(f"test_images/{'lt_depth_cam_ab'}_{0:04.0f}.png", frame3)
-    # ski.io.imsave(f"test_images/{'ahat_depth_cam_ab'}_{0:04.0f}.png", frame4.astype(np.uint8))
+    # converting to gray scale
+    gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
 
+    # remove noise
+    img = cv2.GaussianBlur(gray, (3, 3), 0)
 
+    # convolute with proper kernels
+    laplacian = cv2.Laplacian(img, cv2.CV_64F)
+    sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=5)  # x
+    sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=5)  # y
 
-    frame4 = (frame4/256).astype('uint8')
-    ret, thresh1 = cv2.threshold(frame3, 10000, 24000, cv2.THRESH_BINARY)
-    ret2, thresh2 = cv2.threshold(frame4, 4.5, 256, cv2.THRESH_BINARY_INV)
+    # plt.subplot(2, 2, 1), plt.imshow(img, cmap='gray')
+    # plt.title('Original'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(2, 2, 2), plt.imshow(laplacian, cmap='gray')
+    # plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
+    plt.subplot(2, 2, 3), plt.imshow(sobelx, cmap='gray')
+    plt.title('Sobel X'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(2, 2, 4), plt.imshow(sobely, cmap='gray')
+    # plt.title('Sobel Y'), plt.xticks([]), plt.yticks([])
+    plt.savefig("sobel.png")
 
-    params = cv2.SimpleBlobDetector_Params()
-
-    # Change thresholds
-    params.minThreshold = 0;
-    params.maxThreshold = 255;
-
-    # Filter by Area.
-    params.filterByArea = True
-    params.minArea = 15
-
-    detector = cv2.SimpleBlobDetector_create(params)
-
-    keypoints = detector.detect(thresh2)
-    im_with_keypoints = cv2.drawKeypoints(thresh2, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)    # left:
-    cv2.imshow("Keypoints", im_with_keypoints)
-    #cv2.waitKey(0)
-
-    frameCopy = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][84])
-    infraredPoints = []
-    for keypoint in keypoints:
-      coord = np.array(keypoint.pt)
-      infraredPoints.append(coord)
-      print(coord)
-      draw_disk(frameCopy, coord[0], coord[1], 0, size=1)
-
-    infraredPoints = np.int32(infraredPoints)
-    #
-    img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_left_cam_0000.png.png', 0)
-    img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0000.png', 0)
-    #
-    infraredImage = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\ahat_depth_cam_ab_0000.png', 0)
-    # # infraredImage = cv2.resize(infraredImage, (640, 480), interpolation = cv2.INTER_AREA)
-    #
-    fundMatrix, mask, pointsLeft, pointsRight = find_fund_matrix(img1, infraredImage)
-    fundMatrix2, mask2, pointsLeft2, pointsRight2 = find_fund_matrix(infraredImage, img2)
-    # img1 = cv2.resize(img1, (512, 512), interpolation = cv2.INTER_AREA)
-    # #img2 = cv2.resize(img2, (550, 550), interpolation = cv2.INTER_AREA)
-    #
-    pointsRight = infraredPoints
-
-
-    # # pointsLeft = infraredPoints
-    pointsLeft2 = infraredPoints
-    #
-    # # Inlier points only
-    pointsLeft = pointsLeft[mask.ravel()==1]
-    pointsRight2 = pointsRight2[mask2.ravel()==1]
-    #
-    # draw points and epilines in the left image
-    lines1 = cv2.computeCorrespondEpilines(pointsRight.reshape(-1, 1, 2), 2, fundMatrix)
-    lines1 = lines1.reshape(-1, 3)
-    resImageLeft, helper1 = drawlinesAndPoints(img1, infraredImage, lines1, pointsLeft, pointsRight)
-
-    # draw points and epilines in the right image
-    lines2 = cv2.computeCorrespondEpilines(pointsLeft.reshape(-1, 1, 2), 1, fundMatrix)
-    lines2 = lines2.reshape(-1, 3)
-    resImageRight, helper2 = drawlinesAndPoints(infraredImage, img1, lines2, pointsRight, pointsLeft)
-
-    # draw points and epilines in the left image
-    lines3 = cv2.computeCorrespondEpilines(pointsRight2.reshape(-1, 1, 2), 2, fundMatrix2)
-    lines3 = lines3.reshape(-1, 3)
-    resImageLeft2, helper3 = drawlinesAndPoints(infraredImage, img2, lines3, pointsLeft2, pointsRight2)
-    #
-    # draw points and epilines in the right image
-    lines4 = cv2.computeCorrespondEpilines(pointsLeft2.reshape(-1, 1, 2), 1, fundMatrix2)
-    lines4 = lines4.reshape(-1, 3)
-    resImageRight2, helper4 = drawlinesAndPoints(img2, infraredImage, lines4, pointsRight2, pointsLeft2)
-
-    resImageLeft = cv2.rotate(resImageLeft, cv2.cv2.ROTATE_90_CLOCKWISE)
-    resImageRight2 = cv2.rotate(resImageRight2, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
-    # print(resImageLeft.shape[0])
-    # print(resImageLeft.shape[1])
-    #
-    # print(resImageRight2.shape[0])
-    # print(resImageRight2.shape[1])
-    #
-    # print(infraredImage.shape[0])
-    # print(infraredImage.shape[1])
-    #
-    plt.subplot(121)
-    plt.imshow(resImageLeft)
-
-    plt.subplot(122)
-    plt.imshow(resImageRight2)
-    # # plt.savefig("resized_result.png")
-    #frame1 = cv2.cvtColor(frame1.astype(np.uint8), cv2.COLOR_RGB2RGBA)
-    # ski.io.imsave(f"results/{'frame'}_{1:04.0f}.png", frame1)
-    #
-    # plt.imshow(frame1)
     plt.show()
-
-
-
-
-
-
+    # data = DataAcquisition()
+    # data.load_data(config.get_filename("optical_sphere"))
+    #
+    # frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][0])
+    # frame2 = np.copy(data.acquisitions['vl_front_right_cam_frames'][0])
+    #
+    # frame3 = np.copy(data.acquisitions['lt_depth_cam_ab_frames'][0])
+    # frame4 = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][0])
+    # # #frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
+    # # ski.io.imsave(f"test_images/{'vl_front_left_cam'}_{0:04.0f}.png", frame1)
+    # # ski.io.imsave(f"test_images/{'vl_front_right_cam'}_{0:04.0f}.png", frame2)
+    # # ski.io.imsave(f"test_images/{'lt_depth_cam_ab'}_{0:04.0f}.png", frame3)
+    # # ski.io.imsave(f"test_images/{'ahat_depth_cam_ab'}_{0:04.0f}.png", frame4.astype(np.uint8))
+    #
+    #
+    #
+    # frame4 = (frame4/256).astype('uint8')
+    # ret, thresh1 = cv2.threshold(frame3, 10000, 24000, cv2.THRESH_BINARY)
+    # ret2, thresh2 = cv2.threshold(frame4, 4.5, 256, cv2.THRESH_BINARY_INV)
+    #
+    # params = cv2.SimpleBlobDetector_Params()
+    #
+    # # Change thresholds
+    # params.minThreshold = 0;
+    # params.maxThreshold = 255;
+    #
+    # # Filter by Area.
+    # params.filterByArea = True
+    # params.minArea = 15
+    #
+    # detector = cv2.SimpleBlobDetector_create(params)
+    #
+    # keypoints = detector.detect(thresh2)
+    # im_with_keypoints = cv2.drawKeypoints(thresh2, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)    # left:
+    # cv2.imshow("Keypoints", im_with_keypoints)
+    # #cv2.waitKey(0)
+    #
+    # frameCopy = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][84])
+    # infraredPoints = []
+    # for keypoint in keypoints:
+    #   coord = np.array(keypoint.pt)
+    #   infraredPoints.append(coord)
+    #   print(coord)
+    #   draw_disk(frameCopy, coord[0], coord[1], 0, size=1)
+    #
+    # infraredPoints = np.int32(infraredPoints)
+    # #
+    # img1 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_left_cam_0000.png.png', 0)
+    # img2 = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\vl_front_right_cam_0000.png', 0)
+    # #
+    # infraredImage = cv2.imread(r'C:\Users\Lesle\OneDrive\Documenten\GitHub\holonav\pyapp\test_images\ahat_depth_cam_ab_0000.png', 0)
+    # # # infraredImage = cv2.resize(infraredImage, (640, 480), interpolation = cv2.INTER_AREA)
+    # #
+    # fundMatrix, mask, pointsLeft, pointsRight = find_fund_matrix(img1, infraredImage)
+    # fundMatrix2, mask2, pointsLeft2, pointsRight2 = find_fund_matrix(infraredImage, img2)
+    # # img1 = cv2.resize(img1, (512, 512), interpolation = cv2.INTER_AREA)
+    # # #img2 = cv2.resize(img2, (550, 550), interpolation = cv2.INTER_AREA)
+    # #
+    # pointsRight = infraredPoints
+    #
+    #
+    # # # pointsLeft = infraredPoints
+    # pointsLeft2 = infraredPoints
+    # #
+    # # # Inlier points only
+    # pointsLeft = pointsLeft[mask.ravel()==1]
+    # pointsRight2 = pointsRight2[mask2.ravel()==1]
+    # #
+    # # draw points and epilines in the left image
+    # lines1 = cv2.computeCorrespondEpilines(pointsRight.reshape(-1, 1, 2), 2, fundMatrix)
+    # lines1 = lines1.reshape(-1, 3)
+    # resImageLeft, helper1 = drawlinesAndPoints(img1, infraredImage, lines1, pointsLeft, pointsRight)
+    #
+    # # draw points and epilines in the right image
+    # lines2 = cv2.computeCorrespondEpilines(pointsLeft.reshape(-1, 1, 2), 1, fundMatrix)
+    # lines2 = lines2.reshape(-1, 3)
+    # resImageRight, helper2 = drawlinesAndPoints(infraredImage, img1, lines2, pointsRight, pointsLeft)
+    #
+    # # draw points and epilines in the left image
+    # lines3 = cv2.computeCorrespondEpilines(pointsRight2.reshape(-1, 1, 2), 2, fundMatrix2)
+    # lines3 = lines3.reshape(-1, 3)
+    # resImageLeft2, helper3 = drawlinesAndPoints(infraredImage, img2, lines3, pointsLeft2, pointsRight2)
+    # #
+    # # draw points and epilines in the right image
+    # lines4 = cv2.computeCorrespondEpilines(pointsLeft2.reshape(-1, 1, 2), 1, fundMatrix2)
+    # lines4 = lines4.reshape(-1, 3)
+    # resImageRight2, helper4 = drawlinesAndPoints(img2, infraredImage, lines4, pointsRight2, pointsLeft2)
+    #
+    # resImageLeft = cv2.rotate(resImageLeft, cv2.cv2.ROTATE_90_CLOCKWISE)
+    # resImageRight2 = cv2.rotate(resImageRight2, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+    # # print(resImageLeft.shape[0])
+    # # print(resImageLeft.shape[1])
+    # #
+    # # print(resImageRight2.shape[0])
+    # # print(resImageRight2.shape[1])
+    # #
+    # # print(infraredImage.shape[0])
+    # # print(infraredImage.shape[1])
+    # #
+    # plt.subplot(121)
+    # plt.imshow(resImageLeft)
+    #
+    # plt.subplot(122)
+    # plt.imshow(resImageRight2)
+    # # # plt.savefig("resized_result.png")
+    # #frame1 = cv2.cvtColor(frame1.astype(np.uint8), cv2.COLOR_RGB2RGBA)
+    # # ski.io.imsave(f"results/{'frame'}_{1:04.0f}.png", frame1)
+    # #
+    # # plt.imshow(frame1)
+    # plt.show()
+    #
+    #
+    #
+    #
+    #
+    #
