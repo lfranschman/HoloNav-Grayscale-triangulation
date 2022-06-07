@@ -17,11 +17,11 @@ def find_optical_spheres():
     newData = {}
     data.load_data(config.get_filename("optical_sphere"))
 
-    newData["true_pos"] = pd.DataFrame([], columns=['time',
+    newData["true_pos"] = pd.DataFrame([], columns=['index',
                                                                            'sphere1', 'sphere2',
                                                                            'sphere3', 'sphere4'])
     newData["true_pos"] = \
-        newData["true_pos"].set_index("time")
+        newData["true_pos"].set_index("index")
     for acquisition in ACQUISITIONS_HOLOLENS:
         if not data.acquisitions[acquisition].empty:
             data.acquisitions[acquisition].index = data.acquisitions[acquisition].index + pd.Timedelta(seconds=config.temporal_shift_hololens)
@@ -70,7 +70,7 @@ def find_optical_spheres():
 
         mat_o_to_w = np.linalg.inv(mat_w_to_o)
 
-    for camera in ["vl_front_left_cam", "vl_front_right_cam"]:
+    for camera in ["vl_front_left_cam"]:
         print(f"camera {camera}")
 
         lut_projection = data.acquisitions[camera + "_lut_projection"]
@@ -78,19 +78,19 @@ def find_optical_spheres():
         # nb_images_remaining = 40 # just want to do it for the nb_images_remaining first images
         # nb_images_remaining = 10000 # just want to do it for the nb_images_remaining first images
         # for frame_id in range(len(data.acquisitions[camera + "_frames"])):
-        for frame_id in range(76, len(data.acquisitions[camera])):
+        for frame_id in range(100, len(data.acquisitions[camera])):
             print(f"frame_id {frame_id}")
             timestamp = data.acquisitions[camera].index[frame_id]
             serie = data.acquisitions[camera].loc[timestamp]
             extrinsic = get_mat_c_to_w_series(serie)
             mat_w_to_c = np.linalg.inv(extrinsic)
-
+            print(f"timestamp {timestamp}")
             optical_index = data.acquisitions["probe"].index.get_loc(timestamp, method='nearest')
             optical_timestamp = data.acquisitions["probe"].index[optical_index]
             # print(f"optical_index {optical_index} timestamp {timestamp} optical_timestamp {optical_timestamp}")
 
             # we keep only if time difference is less than 20ms
-            if abs((timestamp - optical_timestamp).total_seconds()) > 0.02:
+            if abs((timestamp - optical_timestamp).total_seconds()) > 0.025:
                 continue # skip this frame
 
             optical_serie = data.acquisitions["probe"].loc[optical_timestamp]
@@ -130,9 +130,9 @@ def find_optical_spheres():
                     # draw_sphere = True
                     points.append(pos_sphere1_c)
             dataEntry = [points[0], points[1], points[2], points[3]]
-            newData["true_pos"].loc[timestamp] = dataEntry
+            newData["true_pos"].loc[frame_id] = dataEntry
     save_pickle(newData, config.get_filename("world_positions"))
-
+        # return points
             # if draw_sphere:
             #     ski.io.imsave(f"generated/{camera}_{frame_id:04.0f}.png", frame)
 

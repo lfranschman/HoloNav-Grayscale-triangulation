@@ -188,12 +188,12 @@ if  __name__ == '__main__':
   for i in range(4):
     p1, p2 = left_lines[i]
     left_lines[i] = [np.float32(p1), np.float32(p2)]
-    cv.line(left_annotated, p1, p2, (0, 0, 0), 1)
+    cv.line(left_annotated, p1, p2, (255,0,0), 1)
 
   for i in range(4):
     p1, p2 = right_lines[i]
     right_lines[i] = [np.float32(p1), np.float32(p2)]
-    cv.line(right_annotated, p1, p2, (0, 0, 0), 1)
+    cv.line(right_annotated, p1, p2, (255,0,0), 1)
 
   # Load templates located in the "templates" folder
   # Each template can have an alpha component which will be used as a mask
@@ -223,8 +223,8 @@ if  __name__ == '__main__':
   for i in range(4):
     pos = find_sphere(left, templates, left_lines[i][0], left_lines[i][1], left_valid)
     # print(rotate_point_clockwise(pos, newH, newW))
-    cv.circle(leftRotatedBack, rotate_point_counterclockwise(pos, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
-    # cv.circle(left_annotated, pos, 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
+    #cv.circle(leftRotatedBack, rotate_point_counterclockwise(pos, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
+    cv.circle(left_annotated, pos, 8, (0,128,0), 1)
     # cv.putText(left_annotated, f' {i}', pos, cv.FONT_HERSHEY_PLAIN, 1.5, (0, 0, 255), lineType=cv.LINE_AA)
 
   right_valid = np.zeros(right.shape[:2], np.uint8)
@@ -240,7 +240,7 @@ if  __name__ == '__main__':
 
   # Show results
   plt.subplot(121)
-  plt.imshow(leftRotatedBack[:, :, ::-1])
+  plt.imshow(left_annotated[:, :, ::-1])
   plt.title("left")
   plt.axis('off')
 

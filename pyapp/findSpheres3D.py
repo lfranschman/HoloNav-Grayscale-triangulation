@@ -348,45 +348,49 @@ def get_line(x1, y1, x2, y2):
     return points
 
 def blobDetection(frame):
-    frame = (frame /256).astype('uint8')
-
-    ret2, thresh = cv2.threshold(frame, 4.5, 256, cv2.THRESH_BINARY)
-
-    _, _, stats, centroids =  cv2.connectedComponentsWithStats(thresh, 4, cv2.CV_32S)
-
-    # Sort to find the biggest components
-    idx = np.argsort(-stats[1:,cv2.CC_STAT_AREA])+1
-    return centroids[idx[:min(4,len(idx))],:]
-
     # frame = (frame /256).astype('uint8')
-    # ret2, thresh = cv2.threshold(frame, 4.5, 256, cv2.THRESH_BINARY_INV)
     #
-    # params = cv2.SimpleBlobDetector_Params()
+    # ret2, thresh = cv2.threshold(frame, 4.5, 256, cv2.THRESH_BINARY)
     #
-    # # Change thresholds
-    # params.minThreshold = 0;
-    # params.maxThreshold = 255;
+    # _, _, stats, centroids =  cv2.connectedComponentsWithStats(thresh, 4, cv2.CV_32S)
     #
-    # # Filter by Area.
-    # params.filterByArea = True
-    # params.minArea = 15
-    #
-    # detector = cv2.SimpleBlobDetector_create(params)
-    #
-    # keypoints = detector.detect(thresh)
-    # # im_with_keypoints = cv2.drawKeypoints(thresh, keypoints, np.array([]), (0 ,0 ,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)    # left:
-    # # cv2.imshow("Keypoints", im_with_keypoints)
-    # # cv2.waitKey(0)
-    #
-    # #frameCopy = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][0])
-    # infraredPoints = []
-    # for keypoint in keypoints:
-    #     coord = np.array(keypoint.pt)
-    #     infraredPoints.append(coord)
-    #     print(coord)
-    #     #draw_disk(frame, coord[0], coord[1], 0, size=1)
-    #
-    # return infraredPoints
+    # # Sort to find the biggest components
+    # idx = np.argsort(-stats[1:,cv2.CC_STAT_AREA])+1
+    # return centroids[idx[:min(4,len(idx))],:]
+
+    frame = (frame /256).astype('uint8')
+    ret2, thresh = cv2.threshold(frame, 4.5, 256, cv2.THRESH_BINARY_INV)
+
+    params = cv2.SimpleBlobDetector_Params()
+
+    # Change thresholds
+    params.minThreshold = 0
+    params.maxThreshold = 255
+
+    # Filter by Area.
+    params.filterByArea = True
+    params.minArea = 25
+
+    # Find based on circularity
+    params.filterByCircularity = True
+    params.minCircularity = 0.
+
+    detector = cv2.SimpleBlobDetector_create(params)
+
+    keypoints = detector.detect(thresh)
+    # im_with_keypoints = cv2.drawKeypoints(thresh, keypoints, np.array([]), (0 ,0 ,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)    # left:
+    # cv2.imshow("Keypoints", im_with_keypoints)
+    # cv2.waitKey(0)
+
+    #frameCopy = np.copy(data.acquisitions['ahat_depth_cam_ab_frames'][0])
+    infraredPoints = []
+    for keypoint in keypoints:
+        coord = np.array(keypoint.pt)
+        infraredPoints.append(coord)
+        print(coord)
+        #draw_disk(frame, coord[0], coord[1], 0, size=1)
+
+    return infraredPoints
 
 def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, imgRight, frameIDRight, data):
 
@@ -445,11 +449,13 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
             if rightImageCoord2D is not None and not math.isnan(rightImageCoord2D[0]) and not math.isnan(rightImageCoord2D[1]):
                 pointsRight.append(list(rightImageCoord2D))
 
-        firstCoordLeft = pointsLeft[0]
-        lastCoordLeft = pointsLeft[len(pointsLeft) - 1]
+        if len(pointsLeft) > 0:
+            firstCoordLeft = pointsLeft[0]
+            lastCoordLeft = pointsLeft[len(pointsLeft) - 1]
 
-        firstCoordRight = pointsRight[0]
-        lastCoordRight = pointsRight[len(pointsRight) - 1]
+        if len(pointsRight) > 0:
+            firstCoordRight = pointsRight[0]
+            lastCoordRight = pointsRight[len(pointsRight) - 1]
 
         leftLine = [firstCoordLeft, lastCoordLeft]
         lineCoordsLeft.append(leftLine)
@@ -461,8 +467,8 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
         # print(np.unique(np.int32(pointsLeft)))
         # print(np.unique(np.int32(pointsRight)))
-        imgLeft = drawPoints(imgLeft, np.int32(pointsLeft))
-        imgRight = drawPoints(imgRight, np.int32(pointsRight))
+        # imgLeft = drawPoints(imgLeft, np.int32(pointsLeft))
+        # imgRight = drawPoints(imgRight, np.int32(pointsRight))
 
     lineCoordsLeft = np.int32(lineCoordsLeft)
     lineCoordsRight = np.int32(lineCoordsRight)
@@ -476,21 +482,22 @@ def projectLineToGreyscale(infraredPoints, frameIDIR,  imgLeft, frameIDLeft, img
 
 if  __name__ == '__main__':
     # find_optical_spheres_c()
+    # 2022 - 03 - 30  15: 15:32.054259 + 02: 00
     data = DataAcquisition()
     optical_locs = load_pickle(r"C:\Users\Lesle\Documents\2022_03_30_optical_sphere\world_positions.pickle.gz")
-    # # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
-    #
+    # print(optical_locs["true_sphere_positions"].loc["2022-03-30 15:14:57.788923+02:00"])
+    # print(optical_locs["true_pos"].loc[100])
     data.load_data(config.get_filename("optical_sphere"))
     mean_errors = []
-
+    all_sphere_dist = []
     minTot = 10000000
     maxTot = 0
 
-    for i in range(270, 271):
+    for i in range(100, 700):
         leftID = i
 
         timestamp = data.acquisitions["vl_front_left_cam"].index[leftID]
-
+        print(timestamp)
         frameIdIR = 0
         best_ts = data.acquisitions["ahat_depth_cam"].index[0]
         for i, ts in enumerate(data.acquisitions["ahat_depth_cam"].index):
@@ -505,14 +512,14 @@ if  __name__ == '__main__':
                 best_ts = ts
                 rightID = i
 
-        opticalID = 0
-        best_ts = optical_locs["true_pos"].index[0]
-        for i, ts in enumerate(optical_locs["true_pos"].index):
-            if abs(ts - timestamp) < abs(best_ts - timestamp):
-                best_ts = ts
-                opticalID = i
+        # opticalID = 0
+        # best_ts = optical_locs["true_pos"].index[0]
+        # for i, ts in enumerate(optical_locs["true_pos"].index):
+        #     if abs(ts - timestamp) < abs(best_ts - timestamp):
+        #         best_ts = ts
+        #         opticalID = i
 
-        print(f"left_idx : {leftID}, right_idx : {rightID}, depth_idx : {frameIdIR}, optical_idx : {opticalID}")
+        print(f"left_idx : {leftID}, right_idx : {rightID}, depth_idx : {frameIdIR}")
 
         # # print(len(data.acquisitions['vl_front_left_cam_lut_projection']))
         frame1 = np.copy(data.acquisitions['vl_front_left_cam_frames'][leftID])
@@ -567,12 +574,12 @@ if  __name__ == '__main__':
         for i in range(4):
             p1, p2 = left_lines[i]
             left_lines[i] = [np.float32(p1), np.float32(p2)]
-            cv2.line(left_annotated, p1, p2, (0, 0, 0), 1)
+            cv2.line(left_annotated, p1, p2, (255, 0, 0), 1)
 
         for i in range(4):
             p1, p2 = right_lines[i]
             right_lines[i] = [np.float32(p1), np.float32(p2)]
-            cv2.line(right_annotated, p1, p2, (0, 0, 0), 1)
+            cv2.line(right_annotated, p1, p2, (255, 0, 0), 1)
 
         # Load templates located in the "templates" folder
         # Each template can have an alpha component which will be used as a mask
@@ -603,6 +610,7 @@ if  __name__ == '__main__':
         for i in range(4):
             posLeft = find_sphere(left, templates, left_lines[i][0], left_lines[i][1], left_valid)
             cv2.circle(rotatedBackLeft, rotate_point_counterclockwise(posLeft, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
+            cv2.circle(left_annotated, posLeft, 8, (0, 128, 0), 1)
             posRight = find_sphere(right, templates, right_lines[i][0], right_lines[i][1], right_valid)
             cv2.circle(rotatedBackRight, rotate_point_clockwise(posRight, newH, newW), 8, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 1)
             sphere_locations.append((rotate_point_counterclockwise(posLeft, newH, newW),
@@ -619,60 +627,71 @@ if  __name__ == '__main__':
 
         positions_spheres_3D = triangulate(sphere_locations, leftID, rightID, frameIdIR)
         positions_spheres_3D = np.array(positions_spheres_3D)
-        print(positions_spheres_3D)
+        # print(positions_spheres_3D)
     #
     #     # left_idx: 270, right_idx: 247, depth_idx: 258, optical_idx: 1120
     #
-        optical_timestamp = optical_locs["true_pos"].index[opticalID]
-        markers = optical_locs["true_pos"].loc[optical_timestamp]
+        # optical_timestamp = optical_locs["true_pos"].index[opticalID]
+        if leftID not in optical_locs["true_pos"].index:
+            continue
+
+        markers = optical_locs["true_pos"].loc[leftID]
         print(markers)
         # markers = np.array(markers)
         # markers = find_optical_spheres(data, leftID)
+
         if markers is None or len(markers) < 4:
             continue
 
         sum = 0
-
+        sphere_dists = []
         for m in markers:
+
             min = 1000000
             for pos in positions_spheres_3D:
                 dist = squared_distance_vector_3d(m[0:3], pos)
                 if dist < min:
                     min = dist
             sum = sum + np.sqrt(min)
+            sphere_dists.append(np.sqrt(min))
             print(np.sqrt(min))
         RMSE = sum/4
         print(RMSE)
         mean_errors.append(RMSE)
+        all_sphere_dist.append(sphere_dists)
         if RMSE < minTot:
             minTot = RMSE
         if RMSE > maxTot:
             maxTot = RMSE
+
         # plt.subplot(121)
-        # plt.imshow(rotatedBackLeft)
-        # plt.title("left")
-        # plt.axis('off')
-        #
-        # # plt.subplot(122)
-        # # plt.imshow(left_valid)
-        # # plt.title("valid")
-        # # plt.show()
-        # #
-        # # plt.subplot(122)
-        # # plt.imshow(right_valid)
-        # # plt.title("valid")
-        # # plt.show()
+        plt.imshow(left_annotated[:, :, ::-1])
+        plt.title("left")
+        plt.axis('off')
+        cv2.imwrite("coloured.png", left_annotated[:, :, ::-1])
+
+        # plt.subplot(122)
+        # plt.imshow(left_valid)
+        # plt.title("valid")
+        # plt.show()
         #
         # plt.subplot(122)
-        # plt.imshow(rotatedBackRight)
-        # plt.title("right")
-        # plt.axis('off')
+        # plt.imshow(right_valid)
+        # plt.title("valid")
         # plt.show()
+        #
+        plt.subplot(122)
+        plt.imshow(rotatedBackRight)
+        plt.title("right")
+        plt.axis('off')
+        plt.show()
 
     print(mean_errors)
     print(minTot)
     print(maxTot)
     fig = plt.figure()
-    plt.plot(mean_errors)
-    fig.savefig("resplotRMSE_1.png", dpi=fig.dpi)
+    # plt.plot(mean_errors)
+    plt.boxplot(all_sphere_dist)
+    # fig.savefig("boxplot2.png", dpi=fig.dpi)
+
     plt.show()
