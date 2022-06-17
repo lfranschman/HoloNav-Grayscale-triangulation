@@ -9,7 +9,7 @@ import traceback
 import zlib
 import numpy as np
 
-from Logging import log_print
+from python.common.Logging import log_print
 
 # INITIAL_IP_ADDRESS = "127.0.0.1"
 INITIAL_IP_ADDRESS = "0.0.0.0"

@@ -11,7 +11,7 @@ DELETE_GT_DIVOT_INDEX_QR_CODE_2022_01_28 = np.array([2 ,3 ,5 ,6  \
 
 class qConfig:
     def __init__(self, filename):
-        self.path = "C:/test/"
+        self.path = "C:/Users/Lesle/Documents"
 
         self.folder = self.path
 

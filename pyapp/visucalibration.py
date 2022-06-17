@@ -4,8 +4,8 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 # from dearpygui.demo import show_demo
 
-from Logging import set_logger, log_print
-from UtilDearPyGui import DpgLogger, help_widget
+from python.common.Logging import set_logger, log_print
+from python.common.UtilDearPyGui import DpgLogger, help_widget
 
 from DataAcquisition import ACQUISITIONS
 # from DataAcquisition import UTC_SHIFT, ACQUISITIONS

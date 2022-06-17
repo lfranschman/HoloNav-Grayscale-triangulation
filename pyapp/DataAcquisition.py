@@ -4,10 +4,10 @@ import threading
 import numpy as np
 import pandas as pd
 
-from Logging import log_print
-from File import save_pickle, load_pickle
+from  python.common.Logging import log_print
+from  python.common.File import save_pickle, load_pickle
 
-from CommunicationHL2 import Communication, CommunicationLUTCameraProjection
+from  python.common.CommunicationHL2 import Communication, CommunicationLUTCameraProjection
 
 # UTC_SHIFT = 2 # in hours
 # UTC_SHIFT = 1 # in hours
@@ -247,9 +247,9 @@ class DataAcquisition:
 
         self.acquisitions = load_pickle(filename)
 
-        if check_version and ("version" not in self.acquisitions or self.acquisitions["version"] != DataAcquisition.VERSION):
-            print(f"version {self.acquisitions['version'] if 'version' in self.acquisitions else '0'} of the file is old, update the file first")
-            assert False
+        # if check_version and ("version" not in self.acquisitions or self.acquisitions["version"] != DataAcquisition.VERSION):
+        #     print(f"version {self.acquisitions['version'] if 'version' in self.acquisitions else '0'} of the file is old, update the file first")
+        #     assert False
 
         # debug, remove some acquisition
         # self.acquisitions['magnetic_seed'] = self.acquisitions['magnetic_seed'][0:0]
