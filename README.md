@@ -1,4 +1,5 @@
 # HoloNav
+This project was part of the research project 2022 of TU Delft. All reserach projects can be found here https://github.com/TU-Delft-CSE/Research-Project.
 
 ## Python libraries to install
 - numpy
