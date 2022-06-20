@@ -28,7 +28,8 @@ python -m pip install dearpygui
 
 ## Quick start
 - Edit the file `userSpecific/globalVariables.default.bat` to change the paths and parameters fitting your configuration.
-- Edit the file `pyapp/config.py` to change `self.path` (where is your data folder). To change dataset edit the end of the file.
+- Link to data set: https://drive.google.com/file/d/1-TzLZJoLLTDhpGw8KWVPPedtmXc-pf7T/view?usp=sharing
+- Edit the file `pyapp/config.py` to change `self.path` (where is your data folder). To change dataset edit the end of the file. 
 
 - Check `pyapp/sphere_tracking.py` for an example to get the center of the sphere position in images using the optical tracking aligned via the qr code to the hololens world coordinate.
 	- You can execute `pyapp/sphere_trackingRedirect.bat` and find log in the `pyapp/generated` folder.
